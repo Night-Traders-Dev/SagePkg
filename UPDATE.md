@@ -1,0 +1,18 @@
+# SagePkg Updates
+
+## [1.1.0] - 2026-05-13
+### Added
+- **SageShell**: Support for keyboard key combos (Ctrl+L, Ctrl+D, Ctrl+C).
+- **SageShell**: Persistent command history via Up/Down arrows.
+- **SageShell**: New prompt using the Sage emoji 🌿.
+- **SagePkg**: Support for universal source code directory (`universal/`).
+- **SagePkg**: Architecture-specific binaries for `aarch64`.
+
+### Changed
+- Refactored package structure to separate source (`universal/`) and binaries.
+- Updated metadata versioning for all packages.
+- Optimized SageFetch for faster execution.
+
+### Fixed
+- Improved robustness of terminal output handling in SageShell.
+- Fixed character deletion and cursor movement in custom input loop.

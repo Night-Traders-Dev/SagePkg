@@ -1,9 +1,14 @@
 # SageFetch
 
-A [Neofetch](https://github.com/dylanaraps/neofetch) clone written entirely in [SageLang](https://github.com/Night-Traders-Dev/SageLang).
+A Neofetch clone in Sage.
 
 ## Installation
 `sagepkg install SageFetch`
 
 ## Usage
-Just run `SageFetch` in your terminal (ensure `~/.sagepkg/bin` is in your PATH).
+Run `SageFetch` to display system information.
+
+## Project Structure
+- `universal/`: Source code.
+- `aarch64/`: Native binaries for ARM64.
+- `x86_64/`: Native binaries for x64.

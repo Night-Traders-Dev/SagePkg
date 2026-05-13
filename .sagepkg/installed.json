@@ -1,0 +1,11 @@
+{
+    "packages": {
+        "SageFetch": {
+            "files": [
+                "main.sage"
+            ],
+            "install_date": "2026-05-13",
+            "version": "1.0.0"
+        }
+    }
+}

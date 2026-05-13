@@ -5,5 +5,12 @@ An interactive fish-like shell written in [SageLang](https://github.com/Night-Tr
 ## Installation
 `sagepkg install SageShell`
 
-## Usage
-Just run `SageShell` in your terminal (ensure `~/.sagepkg/bin` is in your PATH).
+## Features
+- **🌿 Prompt**: Modern Sage-themed prompt.
+- **⌨️ Key Combos**: Support for `Ctrl+L` (clear), `Ctrl+D` (exit), and `Ctrl+C`.
+- **📜 History**: Navigate through previous commands with Up/Down arrows.
+
+## Project Structure
+- `universal/`: Source code.
+- `aarch64/`: Native binaries for ARM64.
+- `x86_64/`: Native binaries for x64.

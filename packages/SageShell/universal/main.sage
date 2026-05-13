@@ -1,8 +1,4 @@
-#!/usr/bin/env sage
-import sys
-import io
-import string
-import std.fmt as fmt
+# standalone version (no imports)
 
 let ESC = chr(27)
 let RESET = ESC + "[0m"
@@ -32,20 +28,20 @@ proc trim(s):
     return result
 
 proc get_cwd():
-    sys.exec("pwd > /tmp/sage_cwd")
-    let cwd = io.readfile("/tmp/sage_cwd")
+    exec("pwd > /tmp/sage_cwd")
+    let cwd = readfile("/tmp/sage_cwd")
     if cwd == nil:
         return "/"
     return trim(cwd)
 
 proc get_user():
-    let u = sys.getenv("USER")
+    let u = getenv("USER")
     if u == nil:
         return "user"
     return u
 
 proc get_host():
-    let h = io.readfile("/etc/hostname")
+    let h = readfile("/etc/hostname")
     if h == nil:
         return "sage"
     return trim(h)
@@ -53,12 +49,12 @@ proc get_host():
 proc starts_with(s, prefix):
     if len(s) < len(prefix):
         return false
-    return string.substr(s, 0, len(prefix)) == prefix
+    return substr(s, 0, len(prefix)) == prefix
 
 proc split_first(s, sep):
     for i in range(len(s)):
         if s[i] == sep:
-            return [string.substr(s, 0, i), string.substr(s, i + 1, len(s) - i - 1)]
+            return [substr(s, 0, i), substr(s, i + 1, len(s) - i - 1)]
     return [s, ""]
 
 let CWD = get_cwd()
@@ -68,19 +64,19 @@ let HOST = get_host()
 proc print_prompt():
     let p = GREEN + USER + "@" + HOST + RESET + " " + CYAN + BOLD + CWD + RESET + " 🌿 "
     # Write to temp file and cat it without newline
-    io.writefile("/tmp/sage_prompt", p)
-    sys.exec("cat /tmp/sage_prompt | tr -d '\\n'")
+    writefile("/tmp/sage_prompt", p)
+    exec("cat /tmp/sage_prompt | tr -d '\\n'")
 
 proc get_char():
-    sys.exec("stty -icanon -echo && dd bs=1 count=1 2>/dev/null > /tmp/sage_key && stty icanon echo")
-    let k = io.readfile("/tmp/sage_key")
+    exec("stty -icanon -echo && dd bs=1 count=1 2>/dev/null > /tmp/sage_key && stty icanon echo")
+    let k = readfile("/tmp/sage_key")
     if k == nil or len(k) == 0:
         return nil
     return k[0]
 
 proc print_line_raw(l):
-    io.writefile("/tmp/sage_line", l)
-    sys.exec("cat /tmp/sage_line | tr -d '\\n'")
+    writefile("/tmp/sage_line", l)
+    exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc sage_readline():
     let line = ""
@@ -99,14 +95,14 @@ proc sage_readline():
         # Backspace
         if code == 127 or code == 8:
             if len(line) > 0:
-                line = string.substr(line, 0, len(line) - 1)
+                line = substr(line, 0, len(line) - 1)
                 # Move back, print space, move back
-                sys.exec("printf '\\b \\b'")
+                exec("printf '\\b \\b'")
             continue
             
         # Ctrl+L
         if code == 12:
-            sys.exec("clear")
+            exec("clear")
             print_prompt()
             print_line_raw(line)
             continue
@@ -134,7 +130,7 @@ proc sage_readline():
                         if HISTORY_INDEX > 0:
                             # Clear current line
                             for i in range(len(line)):
-                                sys.exec("printf '\\b \\b'")
+                                exec("printf '\\b \\b'")
                             HISTORY_INDEX = HISTORY_INDEX - 1
                             line = HISTORY[HISTORY_INDEX]
                             print_line_raw(line)
@@ -143,7 +139,7 @@ proc sage_readline():
                         if HISTORY_INDEX < len(HISTORY):
                             # Clear current line
                             for i in range(len(line)):
-                                sys.exec("printf '\\b \\b'")
+                                exec("printf '\\b \\b'")
                             HISTORY_INDEX = HISTORY_INDEX + 1
                             if HISTORY_INDEX == len(HISTORY):
                                 line = ""
@@ -184,7 +180,7 @@ proc main():
             break
         
         if cmd_line == "clear":
-            sys.exec("clear")
+            exec("clear")
             continue
             
         if cmd_line == "help":
@@ -204,13 +200,13 @@ proc main():
             let parts = split_first(cmd_line, " ")
             let target = trim(parts[1])
             if len(target) == 0:
-                let home = sys.getenv("HOME")
+                let home = getenv("HOME")
                 if home != nil:
                     target = home
             
             let check_cmd = "cd " + CWD + " && cd '" + target + "' 2>/dev/null && pwd > /tmp/sage_cwd_new || echo 'ERROR' > /tmp/sage_cwd_new"
-            sys.exec(check_cmd)
-            let res = trim(io.readfile("/tmp/sage_cwd_new"))
+            exec(check_cmd)
+            let res = trim(readfile("/tmp/sage_cwd_new"))
             if res == "ERROR":
                 print "cd: no such file or directory: " + target
             else:
@@ -220,8 +216,9 @@ proc main():
         
         # Execute external command
         let exec_cmd = "cd " + CWD + " && " + cmd_line
-        let ret = sys.exec(exec_cmd)
+        let ret = exec(exec_cmd)
         if ret != 0:
-            pass
+            let dummy = 0
+
 
 main()

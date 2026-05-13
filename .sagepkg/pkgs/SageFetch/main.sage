@@ -1,4 +1,8 @@
-# standalone version (no imports)
+import io
+import sys
+import string
+import std.fmt as fmt
+import std.process as process
 
 # ANSI Colors
 let ESC = chr(27)
@@ -44,29 +48,29 @@ proc split_lines(s):
 
 proc read_proc_file(path):
     let tmp = "/tmp/sage_proc_tmp"
-    exec("cat " + path + " > " + tmp + " 2>/dev/null")
-    let content = readfile(tmp)
+    sys.exec("cat " + path + " > " + tmp + " 2>/dev/null")
+    let content = io.readfile(tmp)
     return content
 
 proc get_os_info():
-    let content = readfile("/etc/os-release")
+    let content = io.readfile("/etc/os-release")
     if content == nil:
         return "Linux"
     let lines = split_lines(content)
     for line in lines:
         if len(line) > 12:
-            if substr(line, 0, 12) == "PRETTY_NAME=":
-                let name = substr(line, 12, len(line) - 12)
+            if string.substr(line, 0, 12) == "PRETTY_NAME=":
+                let name = string.substr(line, 12, len(line) - 12)
                 # Remove quotes
                 if len(name) > 1 and name[0] == "\"":
-                    return substr(name, 1, len(name) - 2)
+                    return string.substr(name, 1, len(name) - 2)
                 return name
     return "Linux"
 
 proc get_kernel_info():
     let content = read_proc_file("/proc/version")
     if content == nil or len(content) == 0:
-        return platform()
+        return sys.platform
     let parts = []
     let current = ""
     for i in range(len(content)):
@@ -81,7 +85,7 @@ proc get_kernel_info():
     
     if len(parts) > 2:
         return parts[2]
-    return platform()
+    return sys.platform
 
 proc get_uptime_info():
     let content = read_proc_file("/proc/uptime")
@@ -100,7 +104,7 @@ proc get_uptime_info():
     
     let int_part = seconds_str
     if dot != -1:
-        int_part = substr(seconds_str, 0, dot)
+        int_part = string.substr(seconds_str, 0, dot)
     
     let total_seconds = tonumber(int_part)
     if total_seconds == nil:
@@ -122,11 +126,11 @@ proc get_cpu_info():
     let lines = split_lines(content)
     for line in lines:
         if len(line) > 13:
-            if substr(line, 0, 13) == "model name\t: ":
-                return substr(line, 13, len(line) - 13)
+            if string.substr(line, 0, 13) == "model name\t: ":
+                return string.substr(line, 13, len(line) - 13)
         if len(line) > 11:
-            if substr(line, 0, 11) == "Model\t\t: ":
-                return substr(line, 11, len(line) - 11)
+            if string.substr(line, 0, 11) == "Model\t\t: ":
+                return string.substr(line, 11, len(line) - 11)
     return "Generic CPU"
 
 proc get_mem_info():
@@ -140,7 +144,7 @@ proc get_mem_info():
     for line in lines:
         let t_line = trim(line)
         if len(t_line) > 9:
-            if substr(t_line, 0, 9) == "MemTotal:":
+            if string.substr(t_line, 0, 9) == "MemTotal:":
                 let parts = []
                 let curr = ""
                 for c in range(len(t_line)):
@@ -156,7 +160,7 @@ proc get_mem_info():
                     total_kb = tonumber(parts[1])
         
         if len(t_line) > 13:
-            if substr(t_line, 0, 13) == "MemAvailable:":
+            if string.substr(t_line, 0, 13) == "MemAvailable:":
                 let parts = []
                 let curr = ""
                 for c in range(len(t_line)):
@@ -177,10 +181,10 @@ proc get_mem_info():
     return "unknown"
 
 proc get_user_host():
-    let user = getenv("USER")
+    let user = sys.getenv("USER")
     if user == nil:
         user = "user"
-    let host = readfile("/etc/hostname")
+    let host = io.readfile("/etc/hostname")
     if host == nil:
         host = "sage"
     return GREEN + BOLD + user + RESET + "@" + GREEN + BOLD + trim(host) + RESET
@@ -192,7 +196,7 @@ let logo = [
     GREEN + "       |   " + YELLOW + "S" + GREEN + "    |       " + RESET,
     GREEN + "        \\  " + YELLOW + "A" + GREEN + "  /        " + RESET,
     GREEN + "         | " + YELLOW + "G" + GREEN + " |         " + RESET,
-    GREEN + "         | " + YELLOW + "G" + GREEN + " |         " + RESET,
+    GREEN + "         | " + YELLOW + "E" + GREEN + " |         " + RESET,
     GREEN + "         \\____/         " + RESET,
     GREEN + "           ||           " + RESET,
     GREEN + "           ||           " + RESET
@@ -201,22 +205,15 @@ let logo = [
 let user_host_line = get_user_host()
 let dash = "------------------------"
 
-let os_info = get_os_info()
-let kernel_info = get_kernel_info()
-let uptime_info = get_uptime_info()
-let shell_info = getenv("SHELL")
-let cpu_info = get_cpu_info()
-let mem_info = get_mem_info()
-
 let info = [
     user_host_line,
     dash,
-    CYAN + BOLD + "OS:      " + RESET + str(os_info),
-    CYAN + BOLD + "Kernel:  " + RESET + str(kernel_info),
-    CYAN + BOLD + "Uptime:  " + RESET + str(uptime_info),
-    CYAN + BOLD + "Shell:   " + RESET + str(shell_info),
-    CYAN + BOLD + "CPU:     " + RESET + str(cpu_info),
-    CYAN + BOLD + "Memory:  " + RESET + str(mem_info),
+    CYAN + BOLD + "OS:      " + RESET + str(get_os_info()),
+    CYAN + BOLD + "Kernel:  " + RESET + str(get_kernel_info()),
+    CYAN + BOLD + "Uptime:  " + RESET + str(get_uptime_info()),
+    CYAN + BOLD + "Shell:   " + RESET + str(process.get_env_or("SHELL", "/bin/sh")),
+    CYAN + BOLD + "CPU:     " + RESET + str(get_cpu_info()),
+    CYAN + BOLD + "Memory:  " + RESET + str(get_mem_info()),
     "",
     "   " + ESC + "[40m  " + ESC + "[41m  " + ESC + "[42m  " + ESC + "[43m  " + ESC + "[44m  " + ESC + "[45m  " + ESC + "[46m  " + ESC + "[47m  " + RESET
 ]
