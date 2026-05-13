@@ -2,56 +2,31 @@
 
 The official package repository for [SageLang](https://github.com/Night-Traders-Dev/SageLang).
 
-This repository hosts packages that can be installed using the `sagepkg` tool included with SageLang v3.4.5 and above.
-
-## Structure
-
-Packages are organized by name and architecture to ensure compatibility:
-
-```text
-/
-├── packages.json              # Global index of available packages
-└── packages/
-    └── <PackageName>/
-        ├── metadata.json      # Package-specific metadata and file list
-        ├── x86_64/            # Binary/Source files for x86_64
-        └── aarch64/           # Binary/Source files for ARM64
-```
+## Automated Setup
+As of SageLang v3.4.5, running `sagepkg update` will automatically detect your shell (Bash, Zsh, or Fish) and add the Sage binary directory (`~/.sagepkg/bin`) to your `PATH` if it's not already there.
 
 ## How to use SagePkg
 
-The `sagepkg` tool is the easiest way to interact with this repository.
-
-### 1. Update the local index
-Sync your local package list with this repository:
+### 1. Sync and Initialize
 ```bash
 sagepkg update
 ```
+This downloads the latest package list and ensures your environment is ready.
 
-### 2. List available packages
-View what's available for your system:
-```bash
-sagepkg list
-```
-
-### 3. Install a package
-Install a package (it will automatically detect your architecture):
+### 2. Install a package
 ```bash
 sagepkg install SageFetch
 ```
 
-### 4. View installed packages
+### 3. Run by name
+Once installed, you can call packages directly:
 ```bash
-sagepkg installed
+SageFetch
 ```
 
-## Contributing
-
-To add a new package to this repository:
-1. Fork the repository.
-2. Add your package files following the directory structure above.
-3. Update `packages.json` to include your new package.
-4. Submit a Pull Request.
+## Available Packages
+- **SageFetch**: A colorful Neofetch clone.
+- **SageShell**: An interactive fish-like shell.
 
 ---
 © 2026 Night Traders Dev
