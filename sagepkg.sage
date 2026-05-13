@@ -182,21 +182,47 @@ proc cmd_install(pkg_name):
     let files = meta["files"]
     for i in range(len(files)):
         let fname = files[i]
-        let f_url = REPO_URL + "/packages/" + pkg_name + "/" + arch + "/" + fname
+        let f_url = nil
+        if string.contains(fname, "universal/"):
+            f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
+        else:
+            f_url = REPO_URL + "/packages/" + pkg_name + "/" + arch + "/" + fname
+        
         let f_dest = pkg_dir + "/" + fname
+        if string.contains(fname, "/"):
+            # Ensure subdirectories exist (e.g. universal/)
+            let parts = string.split(fname, "/")
+            if len(parts) > 1:
+                let sub_dir = pkg_dir + "/" + parts[0]
+                ensure_dir(sub_dir)
+
         if not download_file(f_url, f_dest):
             print "Error: Failed to download file: " + fname
             return
     
-    # Create wrapper script in BIN_DIR
+    # Create wrapper or copy binary
     let main_file = meta["main"]
-    if main_file != nil:
-        let bin_path = BIN_DIR + "/" + pkg_name
+    let bin_path = BIN_DIR + "/" + pkg_name
+    
+    # Check if a binary with the package name exists for this arch
+    let has_binary = false
+    for i in range(len(files)):
+        if files[i] == pkg_name:
+            has_binary = true
+    
+    if has_binary:
+        let full_binary_path = get_full_path(pkg_dir + "/" + pkg_name)
+        let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+        io.writefile(bin_path, wrapper)
+        sys.exec("chmod +x " + full_binary_path)
+        sys.exec("chmod +x " + bin_path)
+        print "Created binary wrapper: " + bin_path
+    elif main_file != nil:
         let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
         let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
         io.writefile(bin_path, wrapper)
         sys.exec("chmod +x " + bin_path)
-        print "Created executable: " + bin_path
+        print "Created script wrapper: " + bin_path
 
     # Record installation
     let installed = read_json(INSTALLED_FILE)
