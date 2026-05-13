@@ -191,7 +191,7 @@ proc cmd_install(pkg_name):
         let f_dest = pkg_dir + "/" + fname
         if string.contains(fname, "/"):
             # Ensure subdirectories exist (e.g. universal/)
-            let parts = string.split(fname, "/")
+            let parts = split(fname, "/")
             if len(parts) > 1:
                 let sub_dir = pkg_dir + "/" + parts[0]
                 ensure_dir(sub_dir)
