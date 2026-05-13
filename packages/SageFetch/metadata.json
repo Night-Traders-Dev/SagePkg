@@ -1,6 +1,6 @@
 {
   "name": "SageFetch",
   "version": "1.0.0",
-  "main": "main.sage",
-  "files": ["main.sage"]
+  "main": "universal/main.sage",
+  "files": ["universal/main.sage"]
 }
