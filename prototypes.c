@@ -1,6 +1,0 @@
-            "static SageValue sage_exec(SageValue cmd);\n"
-            "static SageValue sage_readfile(SageValue path);\n"
-            "static SageValue sage_writefile(SageValue path, SageValue content);\n"
-            "static SageValue sage_getenv(SageValue name);\n"
-            "static SageValue sage_substr(SageValue s, SageValue start, SageValue len);\n"
-            "static SageValue sage_platform_fn(void);\n"

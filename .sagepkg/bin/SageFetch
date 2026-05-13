@@ -1,2 +1,0 @@
-#!/bin/sh
-exec sage /root/SagePkg/.sagepkg/pkgs/SageFetch/main.sage "$@"

@@ -7,7 +7,11 @@ import std.process as process
 
 let REPO_URL = "https://raw.githubusercontent.com/Night-Traders-Dev/SagePkg/main"
 
-let CONFIG_DIR = ".sagepkg"
+let HOME = sys.getenv("HOME")
+if HOME == nil:
+    HOME = "."
+
+let CONFIG_DIR = HOME + "/.sagepkg"
 let PKGS_DIR = CONFIG_DIR + "/pkgs"
 let BIN_DIR = CONFIG_DIR + "/bin"
 let INDEX_FILE = CONFIG_DIR + "/packages.json"

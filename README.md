@@ -2,8 +2,20 @@
 
 The official package repository for [SageLang](https://github.com/Night-Traders-Dev/SageLang).
 
-## Automated Setup
-As of SageLang v3.4.5, running `sagepkg update` will automatically detect your shell (Bash, Zsh, or Fish) and add the Sage binary directory (`~/.sagepkg/bin`) to your `PATH` if it's not already there.
+## Installation
+
+To install the `sagepkg` tool itself:
+
+```bash
+# Clone the repository
+git clone https://github.com/Night-Traders-Dev/SagePkg
+cd SagePkg
+
+# Install using Makefile
+make install
+```
+
+This will install `sagepkg` to `~/.sagepkg/bin` and update your shell's `PATH`.
 
 ## How to use SagePkg
 
