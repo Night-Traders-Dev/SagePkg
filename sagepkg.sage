@@ -156,7 +156,8 @@ proc cmd_install(pkg_name):
             arch_supported = true
     
     if not arch_supported:
-        print "Error: Package '" + pkg_name + "' does not support architecture: " + arch
+        print "Binary not available for architecture: " + arch + ". Falling back to source build."
+        cmd_build(pkg_name)
         return
     
     print "Installing " + pkg_name + " for " + arch + "..."
@@ -246,6 +247,120 @@ proc cmd_install(pkg_name):
         print "NOTE: To run '" + pkg_name + "' by name, add this to your PATH:"
         print "  export PATH=" + chr(34) + full_bin_path + ":$PATH" + chr(34)
 
+proc cmd_build(pkg_name):
+    let index_data = read_json(INDEX_FILE)
+    if index_data == nil:
+        print "Error: No package index found. Run 'update' first."
+        return
+    
+    let pkg_info = nil
+    let pkgs = index_data["packages"]
+    for i in range(len(pkgs)):
+        if pkgs[i]["name"] == pkg_name:
+            pkg_info = pkgs[i]
+    
+    if pkg_info == nil:
+        print "Error: Package '" + pkg_name + "' not found in index."
+        return
+
+    print "Building " + pkg_name + " from source..."
+    ensure_dir(CONFIG_DIR)
+    ensure_dir(PKGS_DIR)
+    ensure_dir(BIN_DIR)
+    let pkg_dir = PKGS_DIR + "/" + pkg_name
+    ensure_dir(pkg_dir)
+    
+    # Download metadata
+    let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json"
+    let meta_file = pkg_dir + "/metadata.json"
+    if not download_file(meta_url, meta_file):
+        print "Error: Failed to download metadata for " + pkg_name
+        return
+    
+    let meta = read_json(meta_file)
+    if meta == nil:
+        print "Error: Failed to parse metadata for " + pkg_name
+        return
+
+    # Download source files (universal ones)
+    let files = meta["files"]
+    let source_files = []
+    for i in range(len(files)):
+        let fname = files[i]
+        if string.contains(fname, "universal/"):
+            push(source_files, fname)
+            let f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
+            let f_dest = pkg_dir + "/" + fname
+            
+            # Ensure subdirs
+            if string.contains(fname, "/"):
+                let parts = split(fname, "/")
+                if len(parts) > 1:
+                    ensure_dir(pkg_dir + "/" + parts[0])
+                
+            if not download_file(f_url, f_dest):
+                print "Error: Failed to download source file: " + fname
+                return
+
+    # Compile
+    let main_file = meta["main"]
+    if main_file == nil:
+        print "Error: No main script defined in metadata for building."
+        return
+
+    let target_bin = pkg_dir + "/" + pkg_name
+    let compile_cmd = "sage --compile " + pkg_dir + "/" + main_file + " -o " + target_bin
+    print "Compiling: " + compile_cmd
+    let res = sys.exec(compile_cmd)
+    if res != 0:
+        print "Error: Compilation failed."
+        return
+
+    # Create wrapper
+    let bin_path = BIN_DIR + "/" + pkg_name
+    let full_binary_path = get_full_path(target_bin)
+    let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+    io.writefile(bin_path, wrapper)
+    sys.exec("chmod +x " + full_binary_path)
+    sys.exec("chmod +x " + bin_path)
+    
+    # Record installation
+    let installed = read_json(INSTALLED_FILE)
+    if installed == nil:
+        installed = {"packages": {}}
+    
+    installed["packages"][pkg_name] = {
+        "version": meta["version"],
+        "install_date": "2026-05-13",
+        "files": source_files,
+        "built_from_source": true
+    }
+    write_json(INSTALLED_FILE, installed)
+    
+    print "Success: " + pkg_name + " built and installed."
+
+proc cmd_remove(pkg_name):
+    let installed = read_json(INSTALLED_FILE)
+    if installed == nil or installed["packages"][pkg_name] == nil:
+        print "Error: Package '" + pkg_name + "' is not installed."
+        return
+
+    print "Removing " + pkg_name + "..."
+    
+    # Remove binary wrapper
+    let bin_path = BIN_DIR + "/" + pkg_name
+    sys.exec("rm -f " + bin_path)
+    
+    # Remove package files
+    let pkg_dir = PKGS_DIR + "/" + pkg_name
+    sys.exec("rm -rf " + pkg_dir)
+    
+    # Update installed.json
+    dict_delete(installed["packages"], pkg_name)
+    write_json(INSTALLED_FILE, installed)
+    
+    print "Success: " + pkg_name + " removed."
+
 proc cmd_installed():
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
@@ -273,7 +388,9 @@ proc main():
         print "Commands:"
         print "  update       Sync package index (auto-inits PATH)"
         print "  list         List available packages"
-        print "  install <p>  Install a package"
+        print "  install <p>  Install a package (binary or source build)"
+        print "  build <p>    Build a package from source"
+        print "  remove <p>   Remove an installed package"
         print "  installed    List installed packages"
         print "  init         Force initialize shell PATH"
         return
@@ -288,6 +405,16 @@ proc main():
             print "Error: Missing package name."
         else:
             cmd_install(args[3])
+    elif cmd == "build":
+        if len(args) < 4:
+            print "Error: Missing package name."
+        else:
+            cmd_build(args[3])
+    elif cmd == "remove":
+        if len(args) < 4:
+            print "Error: Missing package name."
+        else:
+            cmd_remove(args[3])
     elif cmd == "installed":
         cmd_installed()
     elif cmd == "init":
