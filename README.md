@@ -29,8 +29,21 @@ This downloads the latest package list and ensures your environment is ready.
 ```bash
 sagepkg install SageFetch
 ```
+`sagepkg` will prefer a pre-compiled binary for your architecture. If one is not available, it will automatically download the source and build it for you.
 
-### 3. Run by name
+### 3. Build from source
+To force building a package from source:
+```bash
+sagepkg build SageShell
+```
+
+### 4. Remove a package
+To uninstall a package:
+```bash
+sagepkg remove SageShell
+```
+
+### 5. Run by name
 Once installed, you can call packages directly:
 ```bash
 SageFetch

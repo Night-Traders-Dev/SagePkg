@@ -1,5 +1,11 @@
 # SagePkg Updates
 
+## [1.2.0] - 2026-05-13
+### Added
+- **SagePkg**: New `build` command to force compilation from source.
+- **SagePkg**: New `remove` command to uninstall packages.
+- **SagePkg**: Automatic fallback to building from source if binary is missing during `install`.
+
 ## [1.1.0] - 2026-05-13
 ### Added
 - **SageShell**: Support for keyboard key combos (Ctrl+L, Ctrl+D, Ctrl+C).
