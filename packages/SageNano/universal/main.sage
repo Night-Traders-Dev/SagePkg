@@ -4,7 +4,7 @@ import io
 # ============================================================================
 # Version
 # ============================================================================
-let SAGENANO_VERSION = "1.1.0"
+let SAGENANO_VERSION = "1.1.1"
 
 # ============================================================================
 # ANSI / Terminal helpers  (inlined from ui.sage)
@@ -366,15 +366,41 @@ class Editor:
         io.writefile("/dev/stdout", out)
 
     proc prompt(p):
-        self.message = p
-        self.draw()
+        # Stay in raw mode — read chars manually so keystrokes never echo
+        # into the content area.  The status bar line is used for input.
         let result = ""
-        sys.exec("stty icanon echo")
-        sys.exec("read -r val && echo $val > /tmp/sage_nano_prompt")
-        let res = io.readfile("/tmp/sage_nano_prompt")
-        sys.exec("stty raw -echo")
-        if res != nil:
-            result = trim(res)
+        let edit_rows = self.rows - 4
+        let status_row = edit_rows + 2   # 1-indexed row of the status bar
+
+        # Paint the prompt text in the status bar
+        let bar = p
+        while len(bar) < self.cols:
+            bar = bar + " "
+        let header = hide_cursor() + set_cursor(status_row, 1) + REVERSE + bar + RESET
+        io.writefile("/dev/stdout", header)
+
+        # Position cursor just after the prompt text (still in status bar row)
+        io.writefile("/dev/stdout", set_cursor(status_row, len(p) + 1) + show_cursor())
+
+        while true:
+            sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_nano_key")
+            let k = io.readfile("/tmp/sage_nano_key")
+            if k == nil or len(k) == 0:
+                continue
+            let code = ord(k[0])
+
+            if code == 13 or code == 10:   # Enter — accept
+                return result
+            elif code == 27 or code == 7:  # Esc / ^G — cancel
+                return ""
+            elif code == 127 or code == 8: # Backspace
+                if len(result) > 0:
+                    result = result[0:len(result)-1]
+                    io.writefile("/dev/stdout", "\b \b")
+            elif code >= 32 and code <= 126:
+                result = result + k[0]
+                io.writefile("/dev/stdout", k[0])  # echo char into status bar
+
         return result
 
     proc search():
