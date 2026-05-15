@@ -163,17 +163,15 @@ proc draw_status_bar():
     bar = bar + right + RESET
     
     # Save cursor, move to bottom, print bar, restore cursor
-    let cmd = "printf '" + ESC + "[s" + ESC + "[" + str(rows) + ";1H" + bar + ESC + "[u'"
-    sys.exec(cmd)
+    let output = ESC + "[s" + ESC + "[" + str(rows) + ";1H" + bar + ESC + "[u"
+    io.writefile("/dev/stdout", output)
 
 proc print_prompt():
     let p = GREEN + USER + RESET + " " + CYAN + BOLD + CWD + RESET + " 🌿 "
-    io.writefile("/tmp/sage_prompt", p)
-    sys.exec("cat /tmp/sage_prompt | tr -d '\\n'")
+    io.writefile("/dev/stdout", p)
 
 proc print_line_raw(l):
-    io.writefile("/tmp/sage_line", l)
-    sys.exec("cat /tmp/sage_line | tr -d '\\n'")
+    io.writefile("/dev/stdout", l)
 
 proc is_builtin(cmd):
     if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source" or cmd == "reload" or cmd == "debug" or cmd == "history":
@@ -335,7 +333,7 @@ proc sage_readline():
             
         if needs_redraw:
             suggestion = find_suggestion(line)
-            sys.exec("printf '\\r" + ESC + "[K'")
+            io.writefile("/dev/stdout", "\r" + ESC + "[K")
             print_prompt()
             
             print_line_raw(highlight(line))
@@ -343,7 +341,7 @@ proc sage_readline():
             if len(suggestion) > 0:
                 print_line_raw(GREY + suggestion + RESET)
                 for i in range(len(suggestion)):
-                    sys.exec("printf '\\b'")
+                    io.writefile("/dev/stdout", "\b")
             needs_redraw = false
         
         sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
