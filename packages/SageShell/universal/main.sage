@@ -160,7 +160,7 @@ proc print_line_raw(l):
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc is_builtin(cmd):
-    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source" or cmd == "reload":
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source" or cmd == "reload" or cmd == "debug":
         return true
     return false
 
@@ -447,18 +447,26 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print "SageShell v1.3.8"
+        print BOLD + "SageShell" + RESET + " v1.3.9"
+        print "Architecture: universal"
+        return true
+        
+    if cmd_line == "debug":
+        print "CWD:  " + CWD
+        print "USER: " + USER
+        print "PATH: " + ENV_PATH
         return true
         
     if cmd_line == "reload":
         let h = sys.getenv("HOME")
         if h != nil:
+            print "Reloading configuration..."
             process_command("source " + h + "/.sageshellrc")
         return true
 
     if cmd_line == "help":
         print "SageShell - A fish clone in Sage"
-        print "Built-in commands: cd, clear, help, exit, export, env, version, source, reload"
+        print "Built-in commands: cd, clear, help, exit, export, env, version, source, reload, debug"
         print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
         return true
         
