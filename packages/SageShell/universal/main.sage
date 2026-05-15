@@ -97,6 +97,15 @@ let USER = get_user()
 let ENV_PATH = sys.getenv("PATH")
 let home = sys.getenv("HOME")
 
+let STATE_FILE = "/tmp/sage_ui_state"
+if home != nil:
+    sys.exec("sage " + home + "/.sagepkg/packages/SageUtils/universal/ui_worker.sage &")
+
+proc get_cached_state():
+    let content = io.readfile(STATE_FILE)
+    if content == nil: return ["N/A", "N/A", "24 80"]
+    return split(content, "|")
+
 if ENV_PATH == nil or len(ENV_PATH) < 5:
     ENV_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -119,42 +128,19 @@ for i in range(len(sys_paths)):
     if not string.contains(ENV_PATH, sys_paths[i]):
         ENV_PATH = ENV_PATH + ":" + sys_paths[i]
 
-proc get_temp_f():
-    sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null > /tmp/sage_temp")
-    let t = io.readfile("/tmp/sage_temp")
-    if t == nil or len(t) == 0:
-        return "N/A"
-    let mc = tonumber(trim(t))
-    if mc == nil:
-        return "N/A"
-    let c = mc / 1000
-    let f = (c * 9 / 5) + 32
-    return str(f | 0) + "°F"
-
-proc get_time():
-    sys.exec("date +%H:%M:%S > /tmp/sage_time")
-    return trim(io.readfile("/tmp/sage_time"))
-
-proc get_term_size():
-    sys.exec("stty size 2>/dev/null > /tmp/sage_size")
-    let s = trim(io.readfile("/tmp/sage_size"))
-    if s == "" or s == nil:
-        return [24, 80]
-    let parts = split(s, " ")
-    if len(parts) < 2:
-        return [24, 80]
-    return [tonumber(parts[0]), tonumber(parts[1])]
-
 proc draw_status_bar():
     if not IS_TTY:
         return
-    let size = get_term_size()
-    let rows = size[0]
-    let cols = size[1]
+    let state = get_cached_state()
+    let time = state[0]
+    let temp = state[1]
+    let size_parts = split(state[2], " ")
+    let rows = tonumber(size_parts[0])
+    let cols = tonumber(size_parts[1])
     
     let left = " 🐚 SageShell " + BOLD + CWD + RESET
-    let mid = get_time()
-    let right = get_temp_f() + " "
+    let mid = time
+    let right = temp + " "
     
     let left_len = len(left) - 10 # Adjusted for emoji and bold
     let mid_len = len(mid)
@@ -341,7 +327,8 @@ proc sage_readline():
     sys.exec("stty -icanon -echo min 0 time 2")
     
     while true:
-        let current_time = get_time()
+        let state = get_cached_state()
+        let current_time = state[0]
         if current_time != last_sec:
             draw_status_bar()
             last_sec = current_time
