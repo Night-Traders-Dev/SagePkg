@@ -61,17 +61,20 @@ let CWD = get_cwd()
 let USER = get_user()
 
 let ENV_PATH = sys.getenv("PATH")
-if ENV_PATH == nil:
+let home = sys.getenv("HOME")
+
+# 1. Initialize with robust defaults if PATH is empty or minimal
+if ENV_PATH == nil or len(ENV_PATH) < 10:
     ENV_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-let home = sys.getenv("HOME")
+# 2. Force include ~/.sagepkg/bin
 if home != nil:
     let s_bin = home + "/.sagepkg/bin"
     if not string.contains(ENV_PATH, s_bin):
         ENV_PATH = s_bin + ":" + ENV_PATH
 
-# Ensure basic system paths are ALWAYS present if they aren't
-let sys_paths = ["/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+# 3. Ensure critical system paths are present
+let sys_paths = ["/usr/local/bin", "/usr/bin", "/bin"]
 for i in range(len(sys_paths)):
     if not string.contains(ENV_PATH, sys_paths[i]):
         ENV_PATH = ENV_PATH + ":" + sys_paths[i]
@@ -147,7 +150,7 @@ proc print_line_raw(l):
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc is_builtin(cmd):
-    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version":
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source":
         return true
     return false
 
@@ -436,13 +439,25 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print "SageShell v1.3.4"
+        print "SageShell v1.3.5"
         return true
         
     if cmd_line == "help":
         print "SageShell - A fish clone in Sage"
-        print "Built-in commands: cd, clear, help, exit, export, env, version"
+        print "Built-in commands: cd, clear, help, exit, export, env, version, source"
         print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
+        return true
+        
+    if starts_with(cmd_line, "source "):
+        let parts = split_first(cmd_line, " ")
+        let file = trim(parts[1])
+        if io.exists(file):
+            let content = io.readfile(file)
+            let lines = split(content, chr(10))
+            for i in range(len(lines)):
+                process_command(trim(lines[i]))
+        else:
+            print "source: no such file: " + file
         return true
         
     if cmd_line == "env":
@@ -484,7 +499,7 @@ proc process_command(cmd_line):
                 CWD = res
         return true
     
-    let exec_cmd = "export PATH=" + chr(34) + ENV_PATH + chr(34) + " && cd " + CWD + " && " + cmd_line
+    let exec_cmd = "cd " + CWD + " && PATH=" + chr(34) + ENV_PATH + chr(34) + " " + cmd_line
     sys.exec(exec_cmd)
     return true
 

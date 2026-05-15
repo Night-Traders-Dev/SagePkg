@@ -48,10 +48,15 @@ if [ -n "$CONFIG_FILE" ]; then
         else
             echo -e "\n# SagePkg PATH\nexport PATH=\"$BIN_DIR:\$PATH\"" >> "$CONFIG_FILE"
         fi
-        echo "Success: PATH updated. Please restart your shell or run 'source $CONFIG_FILE'."
-    else
-        echo "PATH already contains $BIN_DIR in $CONFIG_FILE."
     fi
 fi
+
+# Fallback: always try to update .bashrc and .profile if they exist
+for fallback in "$HOME/.bashrc" "$HOME/.profile"; do
+    if [ -f "$fallback" ] && ! grep -q "$BIN_DIR" "$fallback"; then
+        echo "Adding $BIN_DIR to PATH in $fallback..."
+        echo -e "\n# SagePkg PATH\nexport PATH=\"$BIN_DIR:\$PATH\"" >> "$fallback"
+    fi
+done
 
 echo "Done!"
