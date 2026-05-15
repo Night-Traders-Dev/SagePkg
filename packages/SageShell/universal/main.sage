@@ -447,12 +447,18 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print "SageShell v1.3.7"
+        print "SageShell v1.3.8"
         return true
         
+    if cmd_line == "reload":
+        let h = sys.getenv("HOME")
+        if h != nil:
+            process_command("source " + h + "/.sageshellrc")
+        return true
+
     if cmd_line == "help":
         print "SageShell - A fish clone in Sage"
-        print "Built-in commands: cd, clear, help, exit, export, env, version, source"
+        print "Built-in commands: cd, clear, help, exit, export, env, version, source, reload"
         print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
         return true
         
