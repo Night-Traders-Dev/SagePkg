@@ -1,6 +1,5 @@
 import sys
 import io
-import string
 
 let ESC = chr(27)
 let RESET = ESC + "[0m"
@@ -17,8 +16,7 @@ let HISTORY = []
 let HISTORY_INDEX = 0
 
 # IS_TTY is evaluated lazily via check_tty() rather than at module-load time
-# so that piped / non-interactive invocations (CI, scripts) are detected correctly
-# even when the execution context changes between load and first read.
+# so that piped / non-interactive invocations (CI, scripts) are detected correctly.
 proc check_tty():
     return sys.exec("[ -t 0 ]") == 0
 
@@ -69,7 +67,7 @@ proc get_cwd():
     let c = trim(cwd)
     let h = sys.getenv("HOME")
     if h != nil and starts_with(c, h):
-        return "~" + string.substr(c, len(h), len(c) - len(h))
+        return "~" + c[len(h):len(c)]
     return c
 
 proc get_user():
@@ -81,12 +79,15 @@ proc get_user():
 proc starts_with(s, prefix):
     if len(s) < len(prefix):
         return false
-    return string.substr(s, 0, len(prefix)) == prefix
+    return s[0:len(prefix)] == prefix
+
+proc str_contains(s, sub):
+    return len(split(s, sub)) > 1
 
 proc split_first(s, sep):
     for i in range(len(s)):
         if s[i] == sep:
-            return [string.substr(s, 0, i), string.substr(s, i + 1, len(s) - i - 1)]
+            return [s[0:i], s[i+1:len(s)]]
     return [s, ""]
 
 let CWD = get_cwd()
@@ -111,7 +112,7 @@ if ENV_PATH == nil or len(ENV_PATH) < 5:
 
 if home != nil:
     let s_bin = home + "/.sagepkg/bin"
-    if not string.contains(ENV_PATH, s_bin):
+    if not str_contains(ENV_PATH, s_bin):
         ENV_PATH = s_bin + ":" + ENV_PATH
     else:
         # Move it to the front if it's already there
@@ -125,7 +126,7 @@ if home != nil:
 # Ensure critical system paths
 let sys_paths = ["/usr/local/bin", "/usr/bin", "/bin"]
 for i in range(len(sys_paths)):
-    if not string.contains(ENV_PATH, sys_paths[i]):
+    if not str_contains(ENV_PATH, sys_paths[i]):
         ENV_PATH = ENV_PATH + ":" + sys_paths[i]
 
 proc draw_status_bar():
@@ -137,23 +138,23 @@ proc draw_status_bar():
     let size_parts = split(state[2], " ")
     let rows = tonumber(size_parts[0])
     let cols = tonumber(size_parts[1])
-    
+
     let left = " 🐚 SageShell " + BOLD + CWD + RESET
     let mid = time
     let right = temp + " "
-    
+
     let left_len = len(left) - 10 # Adjusted for emoji and bold
     let mid_len = len(mid)
     let right_len = len(right)
-    
+
     let pad_left_len = (cols / 2 | 0) - left_len - (mid_len / 2 | 0)
     if pad_left_len < 1:
         pad_left_len = 1
-        
+
     let pad_right_len = cols - left_len - pad_left_len - mid_len - right_len
     if pad_right_len < 1:
         pad_right_len = 1
-    
+
     let bar = ESC + "[44;37m" + left
     for i in range(pad_left_len):
         bar = bar + " "
@@ -161,8 +162,8 @@ proc draw_status_bar():
     for i in range(pad_right_len):
         bar = bar + " "
     bar = bar + right + RESET
-    
-    # Save cursor, move to bottom, print bar, restore cursor
+
+    # Save cursor → move to bottom row → print bar → restore cursor
     let output = ESC + "[s" + ESC + "[" + str(rows) + ";1H" + bar + ESC + "[u"
     io.writefile("/dev/stdout", output)
 
@@ -181,12 +182,12 @@ proc is_builtin(cmd):
 proc highlight(line):
     if len(line) == 0:
         return ""
-    
+
     let result = ""
     let parts = []
     let current = ""
     let in_string = false
-    
+
     for i in range(len(line)):
         let c = line[i]
         if c == " " and not in_string:
@@ -194,23 +195,23 @@ proc highlight(line):
                 push(parts, current)
             push(parts, " ")
             current = ""
-        elif c == chr(34): # Quote
+        elif c == chr(34):
             in_string = not in_string
             current = current + c
         else:
             current = current + c
-    
+
     if len(current) > 0:
         push(parts, current)
-        
+
     let cmd_found = false
     for i in range(len(parts)):
         let p = parts[i]
         if p == " ":
             result = result + " "
             continue
-            
-        if not cmd_found: # First non-space part is the command
+
+        if not cmd_found:
             cmd_found = true
             if is_builtin(p):
                 result = result + MAGENTA + p + RESET
@@ -218,13 +219,13 @@ proc highlight(line):
                 result = result + GREEN + p + RESET
             else:
                 result = result + RED + p + RESET
-        elif p[0] == "-": # Flag
+        elif p[0] == "-":
             result = result + CYAN + p + RESET
-        elif p[0] == chr(34): # String
+        elif p[0] == chr(34):
             result = result + YELLOW + p + RESET
         else:
             result = result + p
-            
+
     return result
 
 proc command_exists(cmd):
@@ -234,10 +235,8 @@ proc command_exists(cmd):
         return false
     if starts_with(cmd, "./") or starts_with(cmd, "/"):
         return (sys.exec("test -x " + cmd) == 0)
-    
     let check_cmd = "PATH=" + ENV_PATH + " which " + cmd + " > /dev/null 2>&1"
-    let res = sys.exec(check_cmd)
-    return res == 0
+    return sys.exec(check_cmd) == 0
 
 proc find_suggestion(line):
     if len(line) == 0:
@@ -245,7 +244,7 @@ proc find_suggestion(line):
     for i in range(len(HISTORY)):
         let h = HISTORY[len(HISTORY) - 1 - i]
         if starts_with(h, line):
-            return string.substr(h, len(line), len(h) - len(line))
+            return h[len(line):len(h)]
     return ""
 
 proc get_completions(line):
@@ -253,16 +252,16 @@ proc get_completions(line):
     for i in range(len(line)):
         if line[i] == " ":
             last_space = i
-    let word = string.substr(line, last_space + 1, len(line) - last_space - 1)
-    
+    let word = line[last_space+1:len(line)]
+
     let results = []
-    
+
     if last_space == -1:
         let builtins = ["exit", "quit", "help", "cd", "clear", "export", "env", "version"]
         for i in range(len(builtins)):
             if starts_with(builtins[i], word):
                 push(results, builtins[i])
-        
+
         let path = ENV_PATH
         if path != nil:
             let dirs = split(path, ":")
@@ -285,16 +284,16 @@ proc get_completions(line):
     else:
         let dir = "."
         let prefix = word
-        if string.contains(word, "/"):
+        if str_contains(word, "/"):
             let last_slash = -1
             for i in range(len(word)):
                 if word[i] == "/":
                     last_slash = i
-            dir = string.substr(word, 0, last_slash + 1)
+            dir = word[0:last_slash+1]
             if dir == "":
                 dir = "/"
-            prefix = string.substr(word, last_slash + 1, len(word) - last_slash - 1)
-        
+            prefix = word[last_slash+1:len(word)]
+
         sys.exec("ls -1 -F " + dir + " 2>/dev/null > /tmp/sage_ls")
         let content = io.readfile("/tmp/sage_ls")
         if content != nil:
@@ -308,6 +307,9 @@ proc get_completions(line):
                         push(results, dir + f)
     return results
 
+# ============================================================================
+# sage_readline — with full cursor tracking so arrow keys work correctly
+# ============================================================================
 proc sage_readline():
     if not IS_TTY:
         sys.exec("read -r line_in && echo $line_in > /tmp/sage_in || echo 'EOF' > /tmp/sage_in")
@@ -317,79 +319,120 @@ proc sage_readline():
         return res
 
     let line = ""
+    let cursor = 0          # insertion-point position within line
     let suggestion = ""
     let h_search = ""
     let last_sec = ""
     let needs_redraw = true
-    
+
     sys.exec("stty -icanon -echo min 0 time 2")
-    
+
     while true:
         let state = get_cached_state()
         let current_time = state[0]
         if current_time != last_sec:
             draw_status_bar()
             last_sec = current_time
-            
+
         if needs_redraw:
-            suggestion = find_suggestion(line)
+            # Only show suggestion when cursor is at end of line
+            if cursor == len(line):
+                suggestion = find_suggestion(line)
+            else:
+                suggestion = ""
+
+            # Rebuild the prompt line in-place
             io.writefile("/dev/stdout", "\r" + ESC + "[K")
             print_prompt()
-            
-            print_line_raw(highlight(line))
-                
-            if len(suggestion) > 0:
+
+            # Text before cursor (highlighted)
+            if cursor > 0:
+                print_line_raw(highlight(line[0:cursor]))
+
+            # Text after cursor (plain, not highlighted so we can distinguish)
+            let after = line[cursor:len(line)]
+            if len(after) > 0:
+                print_line_raw(after)
+
+            # Autosuggestion (only when cursor is at end)
+            if cursor == len(line) and len(suggestion) > 0:
                 print_line_raw(GREY + suggestion + RESET)
+                # Move back past suggestion
                 for i in range(len(suggestion)):
                     io.writefile("/dev/stdout", "\b")
+
+            # Move cursor back past the "after" portion so it sits at cursor pos
+            if len(after) > 0:
+                for i in range(len(after)):
+                    io.writefile("/dev/stdout", "\b")
+
             needs_redraw = false
-        
+
         sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
         let k = io.readfile("/tmp/sage_key")
         if k == nil or len(k) == 0:
             continue
-        
+
         needs_redraw = true
         let ch = k[0]
         let code = ord(ch)
-        
+
+        # ── Enter ──────────────────────────────────────────────────────────
         if code == 10 or code == 13:
             print ""
             sys.exec("stty icanon echo")
             return line
-            
+
+        # ── Backspace ──────────────────────────────────────────────────────
         if code == 127 or code == 8:
-            if len(line) > 0:
-                line = string.substr(line, 0, len(line) - 1)
+            if cursor > 0:
+                line = line[0:cursor-1] + line[cursor:len(line)]
+                cursor = cursor - 1
                 h_search = ""
             continue
-            
+
+        # ── ^L clear screen ───────────────────────────────────────────────
         if code == 12:
             sys.exec("clear")
             continue
-            
+
+        # ── ^D EOF (only on empty line) ───────────────────────────────────
         if code == 4:
             if len(line) == 0:
                 sys.exec("stty icanon echo")
                 return nil
             continue
-            
+
+        # ── ^C cancel / clear line ────────────────────────────────────────
         if code == 3:
-            print "^C"
+            io.writefile("/dev/stdout", "\r" + ESC + "[K^C\r\n")
             sys.exec("stty icanon echo")
             return ""
-            
-        if code == 9: # Tab
-            if len(suggestion) > 0:
+
+        # ── ^A Home ───────────────────────────────────────────────────────
+        if code == 1:
+            cursor = 0
+            continue
+
+        # ── ^E End ────────────────────────────────────────────────────────
+        if code == 5:
+            cursor = len(line)
+            continue
+
+        # ── Tab completion ────────────────────────────────────────────────
+        if code == 9:
+            if cursor == len(line) and len(suggestion) > 0:
                 line = line + suggestion
+                cursor = len(line)
             else:
-                let comps = get_completions(line)
+                let comps = get_completions(line[0:cursor])
                 if len(comps) == 1:
                     let last_space = -1
                     for i in range(len(line)):
                         if line[i] == " ":
                             last_space = i
-                    line = string.substr(line, 0, last_space + 1) + comps[0]
+                    line = line[0:last_space+1] + comps[0]
+                    cursor = len(line)
                 elif len(comps) > 1:
                     print ""
                     let comp_line = ""
@@ -402,82 +445,118 @@ proc sage_readline():
                         print comp_line
             continue
 
+        # ── Escape sequences (arrows, Home, End, Del, PgUp/Dn) ───────────
         if code == 27:
             sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
             let next1 = io.readfile("/tmp/sage_key")
-            if next1 != nil and ord(next1[0]) == 91:
+            if next1 != nil and ord(next1[0]) == 91:  # [
                 sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
                 let next2 = io.readfile("/tmp/sage_key")
                 if next2 != nil:
-                    let dir = ord(next2[0])
-                    if dir == 65: # Up
+                    let d = ord(next2[0])
+
+                    if d == 65:  # ↑ Up — history backward
                         if h_search == "":
-                            h_search = line
+                            h_search = line[0:cursor]
                         let idx = HISTORY_INDEX - 1
                         while idx >= 0:
                             if starts_with(HISTORY[idx], h_search):
                                 HISTORY_INDEX = idx
                                 line = HISTORY[idx]
+                                cursor = len(line)
                                 break
                             idx = idx - 1
                         continue
-                    if dir == 66: # Down
+
+                    if d == 66:  # ↓ Down — history forward
                         if h_search == "":
-                            h_search = line
+                            h_search = line[0:cursor]
                         let idx = HISTORY_INDEX + 1
                         let found = false
                         while idx < len(HISTORY):
                             if starts_with(HISTORY[idx], h_search):
                                 HISTORY_INDEX = idx
                                 line = HISTORY[idx]
+                                cursor = len(line)
                                 found = true
                                 break
                             idx = idx + 1
                         if not found:
                             line = h_search
+                            cursor = len(line)
                             HISTORY_INDEX = len(HISTORY)
                         continue
-                    if dir == 67: # Right
-                        if len(suggestion) > 0:
+
+                    if d == 67:  # → Right — move cursor right / accept suggestion
+                        if cursor < len(line):
+                            cursor = cursor + 1
+                        elif len(suggestion) > 0:
                             line = line + suggestion
+                            cursor = len(line)
+                        continue
+
+                    if d == 68:  # ← Left — move cursor left
+                        if cursor > 0:
+                            cursor = cursor - 1
+                        continue
+
+                    if d == 72:  # Home (Esc[H)
+                        cursor = 0
+                        continue
+
+                    if d == 70:  # End (Esc[F)
+                        cursor = len(line)
+                        continue
+
+                    if d == 51:  # Delete key (Esc[3~) — delete char under cursor
+                        sys.exec("dd bs=1 count=1 2>/dev/null > /dev/null")
+                        if cursor < len(line):
+                            line = line[0:cursor] + line[cursor+1:len(line)]
+                        continue
+
+                    if d == 49:  # Esc[1;5D / Esc[1;5C — ctrl+left/right (multi-byte)
+                        # consume rest of sequence
+                        sys.exec("dd bs=2 count=1 2>/dev/null > /dev/null")
                         continue
             continue
 
+        # ── Printable character — insert at cursor ────────────────────────
         if code >= 32 and code <= 126:
-            line = line + ch
+            line = line[0:cursor] + ch + line[cursor:len(line)]
+            cursor = cursor + 1
             h_search = ""
-            
+
     sys.exec("stty icanon echo")
     return line
 
 proc process_command(cmd_line):
     if len(cmd_line) == 0:
         return true
-        
+
     if cmd_line == "exit" or cmd_line == "quit":
         return false
-    
+
     if cmd_line == "clear":
         sys.exec("clear")
         return true
-        
+
     if cmd_line == "version":
-        print BOLD + "SageShell" + RESET + " v1.5.1"
+        print BOLD + "SageShell" + RESET + " v1.5.2"
         print "Architecture: universal"
         return true
-        
+
     if cmd_line == "debug":
         print "CWD:  " + CWD
         print "USER: " + USER
         print "PATH: " + ENV_PATH
         print "HIST: " + str(len(HISTORY))
         return true
-        
+
     if cmd_line == "history":
         for i in range(len(HISTORY)):
             print " " + str(i + 1) + "  " + HISTORY[i]
         return true
-        
+
     if cmd_line == "reload":
         let h = sys.getenv("HOME")
         if h != nil:
@@ -486,11 +565,12 @@ proc process_command(cmd_line):
         return true
 
     if cmd_line == "help":
-        print "SageShell - A fish clone in Sage"
-        print "Built-in commands: cd, clear, help, exit, export, env, version, source, reload, debug, history"
-        print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar, Persistent History"
+        print "SageShell - A fish-like shell in SageLang"
+        print "Built-ins: cd, clear, help, exit, export, env, version, source, reload, debug, history"
+        print "Features: Syntax highlighting, autosuggestions, tab completion, history search, status bar"
+        print "Keys: ←/→ move cursor  ↑/↓ history  ^A/^E home/end  Tab complete  ^C cancel  ^D EOF"
         return true
-        
+
     if starts_with(cmd_line, "source "):
         let parts = split_first(cmd_line, " ")
         let file = trim(parts[1])
@@ -502,21 +582,20 @@ proc process_command(cmd_line):
         else:
             print "source: no such file: " + file
         return true
-        
+
     if cmd_line == "env":
         print "PATH=" + ENV_PATH
         return true
-        
+
     if starts_with(cmd_line, "export "):
         let parts = split_first(cmd_line, " ")
         let kv = trim(parts[1])
-        if string.contains(kv, "="):
+        if str_contains(kv, "="):
             let kv_parts = split_first(kv, "=")
             let key = trim(kv_parts[0])
             let val = trim(kv_parts[1])
             if key == "PATH":
-                # Simple expansion for $PATH
-                if string.contains(val, "$PATH"):
+                if str_contains(val, "$PATH"):
                     let v_parts = split(val, "$PATH")
                     val = v_parts[0] + ENV_PATH
                     if len(v_parts) > 1:
@@ -528,10 +607,10 @@ proc process_command(cmd_line):
         let parts = split_first(cmd_line, " ")
         let target = trim(parts[1])
         if len(target) == 0:
-            let home = sys.getenv("HOME")
-            if home != nil:
-                target = home
-        
+            let h = sys.getenv("HOME")
+            if h != nil:
+                target = h
+
         let check_cmd = "cd " + CWD + " && cd '" + target + "' 2>/dev/null && pwd > /tmp/sage_cwd_new || echo 'ERROR' > /tmp/sage_cwd_new"
         sys.exec(check_cmd)
         let res = trim(io.readfile("/tmp/sage_cwd_new"))
@@ -541,7 +620,7 @@ proc process_command(cmd_line):
             if len(res) > 0:
                 CWD = res
         return true
-    
+
     let exec_cmd = "cd " + CWD + " && PATH=" + chr(34) + ENV_PATH + chr(34) + " " + cmd_line
     sys.exec(exec_cmd)
     return true
@@ -550,11 +629,11 @@ proc main():
     load_history()
     print "Welcome to SageShell!"
     print "Type 'help' for commands, 'exit' to quit."
-    
+
     # Load .sageshellrc
-    let home = sys.getenv("HOME")
-    if home != nil:
-        let rc = home + "/.sageshellrc"
+    let h = sys.getenv("HOME")
+    if h != nil:
+        let rc = h + "/.sageshellrc"
         if io.exists(rc):
             let content = io.readfile(rc)
             let lines = split(content, chr(10))
@@ -568,15 +647,15 @@ proc main():
         if cmd_line == nil:
             print "exit"
             break
-        
+
         cmd_line = trim(cmd_line)
         if len(cmd_line) == 0:
             continue
-            
+
         if len(HISTORY) == 0 or HISTORY[len(HISTORY)-1] != cmd_line:
             push(HISTORY, cmd_line)
             save_history(cmd_line)
-            
+
         if not process_command(cmd_line):
             break
 
