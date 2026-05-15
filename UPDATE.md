@@ -1,5 +1,13 @@
 # SagePkg Updates
 
+## [1.3.0] - 2026-05-15
+### Added
+- **SagePkg**: Support for `riscv64` architecture.
+- **SagePkg**: Improved reliability of architecture and path detection.
+- **SagePkg**: Dynamic installation dates for packages.
+- **SagePkg**: Input validation for package names to prevent command injection.
+- **SagePkg**: Better error reporting for network and compilation failures.
+
 ## [1.2.0] - 2026-05-13
 ### Added
 - **SagePkg**: New `build` command to force compilation from source.

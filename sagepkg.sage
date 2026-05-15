@@ -3,7 +3,6 @@ import sys
 import io
 import json
 import string
-import std.process as process
 
 let REPO_URL = "https://raw.githubusercontent.com/Night-Traders-Dev/SagePkg/main"
 
@@ -16,6 +15,7 @@ let PKGS_DIR = CONFIG_DIR + "/pkgs"
 let BIN_DIR = CONFIG_DIR + "/bin"
 let INDEX_FILE = CONFIG_DIR + "/packages.json"
 let INSTALLED_FILE = CONFIG_DIR + "/installed.json"
+let TEMP_FILE = CONFIG_DIR + "/.tmp"
 
 proc trim(s):
     if s == nil:
@@ -40,6 +40,8 @@ proc ensure_dir(dir):
 proc download_file(url, dest):
     let cmd = "curl -sL " + url + " -o " + dest
     let res = sys.exec(cmd)
+    if res != 0:
+        print "Error: curl failed with exit code " + res
     return res == 0
 
 proc read_json(path):
@@ -60,15 +62,27 @@ proc write_json(path, data):
     json.cJSON_Delete(cjson)
 
 proc get_arch():
-    let tmp = "/tmp/sage_arch"
-    sys.exec("uname -m > " + tmp)
-    let arch = trim(io.readfile(tmp))
-    # io.remove(tmp)
+    ensure_dir(CONFIG_DIR)
+    sys.exec("uname -m > " + TEMP_FILE)
+    let arch = trim(io.readfile(TEMP_FILE))
+    sys.exec("rm -f " + TEMP_FILE)
     return arch
 
 proc get_full_path(path):
-    sys.exec("readlink -f " + path + " > /tmp/sage_fullpath")
-    return trim(io.readfile("/tmp/sage_fullpath"))
+    ensure_dir(CONFIG_DIR)
+    sys.exec("readlink -f " + path + " > " + TEMP_FILE)
+    let full_path = trim(io.readfile(TEMP_FILE))
+    sys.exec("rm -f " + TEMP_FILE)
+    return full_path
+
+proc get_date():
+    ensure_dir(CONFIG_DIR)
+    sys.exec("date +%Y-%m-%d > " + TEMP_FILE)
+    let d = trim(io.readfile(TEMP_FILE))
+    sys.exec("rm -f " + TEMP_FILE)
+    if d == "":
+        return "2026-05-15" # Fallback
+    return d
 
 proc cmd_init():
     let shell = sys.getenv("SHELL")
@@ -133,6 +147,16 @@ proc cmd_list():
         print p["name"] + " (v" + p["version"] + ") - " + p["description"]
 
 proc cmd_install(pkg_name):
+    # Sanitize input
+    if pkg_name == nil or len(pkg_name) == 0:
+        print "Error: Invalid package name."
+        return
+    for i in range(len(pkg_name)):
+        let c = pkg_name[i]
+        if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "-" or c == "_"):
+            print "Error: Package name contains invalid characters."
+            return
+
     let index_data = read_json(INDEX_FILE)
     if index_data == nil:
         print "Error: No package index found. Run 'update' first."
@@ -232,7 +256,7 @@ proc cmd_install(pkg_name):
     
     installed["packages"][pkg_name] = {
         "version": meta["version"],
-        "install_date": "2026-05-13", # Hardcoded for now
+        "install_date": get_date(),
         "files": files
     }
     write_json(INSTALLED_FILE, installed)
@@ -248,6 +272,16 @@ proc cmd_install(pkg_name):
         print "  export PATH=" + chr(34) + full_bin_path + ":$PATH" + chr(34)
 
 proc cmd_build(pkg_name):
+    # Sanitize input
+    if pkg_name == nil or len(pkg_name) == 0:
+        print "Error: Invalid package name."
+        return
+    for i in range(len(pkg_name)):
+        let c = pkg_name[i]
+        if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "-" or c == "_"):
+            print "Error: Package name contains invalid characters."
+            return
+
     let index_data = read_json(INDEX_FILE)
     if index_data == nil:
         print "Error: No package index found. Run 'update' first."
@@ -313,7 +347,7 @@ proc cmd_build(pkg_name):
     print "Compiling: " + compile_cmd
     let res = sys.exec(compile_cmd)
     if res != 0:
-        print "Error: Compilation failed."
+        print "Error: Compilation failed with exit code " + res
         return
 
     # Create wrapper
@@ -331,7 +365,7 @@ proc cmd_build(pkg_name):
     
     installed["packages"][pkg_name] = {
         "version": meta["version"],
-        "install_date": "2026-05-13",
+        "install_date": get_date(),
         "files": source_files,
         "built_from_source": true
     }
