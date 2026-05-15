@@ -216,7 +216,7 @@ proc cmd_update():
             
     if not sagepkg_in_updates:
         # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.0.2" # Default/Current version
+        let current_ver = "1.0.3" # Default/Current version
         if installed["packages"]["sagepkg"] != nil:
             current_ver = installed["packages"]["sagepkg"]["version"]
             
@@ -295,7 +295,7 @@ proc cmd_install(pkg_name):
     let arch_supported = false
     let arches = pkg_info["architectures"]
     for i in range(len(arches)):
-        if arches[i] == arch:
+        if arches[i] == arch or arches[i] == "universal":
             arch_supported = true
     
     if not arch_supported:

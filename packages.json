@@ -5,18 +5,18 @@
       "version": "1.1.0",
       "description": "A Neofetch clone in Sage",
       "author": "Gemini CLI",
-      "architectures": ["x86_64", "aarch64", "riscv64"]
+      "architectures": ["x86_64", "aarch64", "riscv64", "universal"]
     },
     {
       "name": "SageShell",
       "version": "1.2.0",
       "description": "A fish shell clone in Sage",
       "author": "Gemini CLI",
-      "architectures": ["x86_64", "aarch64", "riscv64"]
+      "architectures": ["x86_64", "aarch64", "riscv64", "universal"]
     },
     {
       "name": "sagepkg",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "description": "The SageLang Package Manager",
       "author": "Gemini CLI",
       "architectures": ["universal"]
