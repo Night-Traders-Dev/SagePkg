@@ -230,35 +230,44 @@ proc sage_readline():
     let line = ""
     let suggestion = ""
     let h_search = ""
+    let last_sec = ""
+    let needs_redraw = true
     
-    sys.exec("stty -icanon -echo")
+    sys.exec("stty -icanon -echo min 0 time 2")
     
     while true:
-        draw_status_bar()
-        suggestion = find_suggestion(line)
-        sys.exec("printf '\\r" + ESC + "[K'")
-        print_prompt()
-        
-        let parts = split_first(line, " ")
-        let cmd = parts[0]
-        if len(cmd) > 0:
-            if command_exists(cmd):
-                print_line_raw(GREEN + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
-            else:
-                print_line_raw(RED + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
-        else:
-            print_line_raw(line)
+        let current_time = get_time()
+        if current_time != last_sec:
+            draw_status_bar()
+            last_sec = current_time
             
-        if len(suggestion) > 0:
-            print_line_raw(GREY + suggestion + RESET)
-            for i in range(len(suggestion)):
-                sys.exec("printf '\\b'")
+        if needs_redraw:
+            suggestion = find_suggestion(line)
+            sys.exec("printf '\\r" + ESC + "[K'")
+            print_prompt()
+            
+            let parts = split_first(line, " ")
+            let cmd = parts[0]
+            if len(cmd) > 0:
+                if command_exists(cmd):
+                    print_line_raw(GREEN + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
+                else:
+                    print_line_raw(RED + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
+            else:
+                print_line_raw(line)
+                
+            if len(suggestion) > 0:
+                print_line_raw(GREY + suggestion + RESET)
+                for i in range(len(suggestion)):
+                    sys.exec("printf '\\b'")
+            needs_redraw = false
         
         sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
         let k = io.readfile("/tmp/sage_key")
         if k == nil or len(k) == 0:
-            sys.exec("stty icanon echo")
-            return nil
+            continue
+        
+        needs_redraw = true
         let ch = k[0]
         let code = ord(ch)
         
@@ -390,7 +399,7 @@ proc main():
         if cmd_line == "help":
             print "SageShell - A fish clone in Sage"
             print "Built-in commands: cd, clear, help, exit"
-            print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search"
+            print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
             continue
             
         if starts_with(cmd_line, "cd "):
