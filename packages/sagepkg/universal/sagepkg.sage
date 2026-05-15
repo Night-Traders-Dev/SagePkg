@@ -216,7 +216,7 @@ proc cmd_update():
             
     if not sagepkg_in_updates:
         # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.0.0" # Default/Current version
+        let current_ver = "1.0.1" # Default/Current version
         if installed["packages"]["sagepkg"] != nil:
             current_ver = installed["packages"]["sagepkg"]["version"]
             

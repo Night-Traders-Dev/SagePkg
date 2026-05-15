@@ -16,7 +16,7 @@
     },
     {
       "name": "sagepkg",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "description": "The SageLang Package Manager",
       "author": "Gemini CLI",
       "architectures": ["universal"]
