@@ -74,8 +74,7 @@ class Editor:
         out = out + set_cursor(screen_y, screen_x)
         out = out + show_cursor()
         
-        io.writefile("/tmp/sage_nano_draw", out)
-        sys.exec("cat /tmp/sage_nano_draw")
+        io.writefile("/dev/stdout", out)
 
     proc prompt(p):
         self.message = p

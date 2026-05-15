@@ -7,20 +7,14 @@ let REVERSE = ESC + "[7m"
 let BOLD = ESC + "[1m"
 
 proc get_term_size():
-    print("stty size 2>/dev/null > /tmp/sage_nano_size")
-    let s = ""
-    if s == "" or s == nil:
-        return [24, 80]
-    let parts = split(s, " ")
-    if len(parts) < 2:
-        return [24, 80]
-    let h = tonumber(parts[0])
-    let w = tonumber(parts[1])
-    if h == nil:
-        h = 24
-    if w == nil:
-        w = 80
-    return [h, w]
+    let content = io.readfile("/tmp/sage_ui_state")
+    if content != nil:
+        let parts = split(content, "|")
+        if len(parts) >= 3:
+            let size_parts = split(parts[2], " ")
+            if len(size_parts) >= 2:
+                return [tonumber(size_parts[0]), tonumber(size_parts[1])]
+    return [24, 80]
 
 proc draw_title_bar(cols, filename, modified):
     let title = "  SageNano 1.0.1"
