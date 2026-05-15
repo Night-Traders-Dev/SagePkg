@@ -2,7 +2,7 @@
   "packages": [
     {
       "name": "SageFetch",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "description": "A Neofetch clone in Sage",
       "author": "Gemini CLI",
       "architectures": ["x86_64", "aarch64", "riscv64", "universal"]

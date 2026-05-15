@@ -193,23 +193,34 @@ proc get_gpu_info():
             let parts = split(trim(drm), "=")
             if len(parts) > 1:
                 let drv = parts[1]
-                if drv == "panfrost": return "ARM Mali (Panfrost)"
-                if drv == "lima": return "ARM Mali (Lima)"
-                if drv == "etnaviv": return "Vivante (Etnaviv)"
-                if drv == "msm": return "Qualcomm Adreno"
-                if drv == "vc4": return "Broadcom VC4"
-                if drv == "v3d": return "Broadcom V3D"
-                if drv == "i915": return "Intel Graphics"
-                if drv == "amdgpu": return "AMD Radeon"
-                if drv == "nouveau": return "NVIDIA (Nouveau)"
+                if drv == "panfrost":
+                    return "ARM Mali (Panfrost)"
+                if drv == "lima":
+                    return "ARM Mali (Lima)"
+                if drv == "etnaviv":
+                    return "Vivante (Etnaviv)"
+                if drv == "msm":
+                    return "Qualcomm Adreno"
+                if drv == "vc4":
+                    return "Broadcom VC4"
+                if drv == "v3d":
+                    return "Broadcom V3D"
+                if drv == "i915":
+                    return "Intel Graphics"
+                if drv == "amdgpu":
+                    return "AMD Radeon"
+                if drv == "nouveau":
+                    return "NVIDIA (Nouveau)"
                 return drv + " GPU"
 
     # 3. Last fallback: check device tree (ARM)
     sys.exec("cat /proc/device-tree/model 2>/dev/null > /tmp/sage_dt")
     let dt = io.readfile("/tmp/sage_dt")
     if dt != nil and string.contains(dt, "Orange Pi"):
-        if string.contains(dt, "5"): return "ARM Mali-G610 MP4"
-        if string.contains(dt, "3"): return "ARM Mali-G52"
+        if string.contains(dt, "5"):
+            return "ARM Mali-G610 MP4"
+        if string.contains(dt, "3"):
+            return "ARM Mali-G52"
         return "ARM Mali"
 
     return "unknown"
