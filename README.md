@@ -50,8 +50,8 @@ SageFetch
 ```
 
 ## Available Packages
-- **SageFetch**: A colorful Neofetch clone.
-- **SageShell**: An interactive fish-like shell.
+- **SageFetch**: A high-performance Neofetch clone with robust CPU and shell detection.
+- **SageShell**: A modern fish-like shell featuring syntax highlighting, autosuggestions, tab completion, and a dynamic status bar.
 
 ---
 © 2026 Night Traders Dev

@@ -65,6 +65,67 @@ let CWD = get_cwd()
 let USER = get_user()
 let HOST = get_host()
 
+proc get_temp_f():
+    sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null > /tmp/sage_temp")
+    let t = io.readfile("/tmp/sage_temp")
+    if t == nil or len(t) == 0:
+        return "N/A"
+    let mc = tonumber(trim(t))
+    if mc == nil:
+        return "N/A"
+    let c = mc / 1000
+    let f = (c * 9 / 5) + 32
+    return str(f | 0) + "°F"
+
+proc get_time():
+    sys.exec("date +%H:%M:%S > /tmp/sage_time")
+    return trim(io.readfile("/tmp/sage_time"))
+
+proc get_term_size():
+    sys.exec("stty size 2>/dev/null > /tmp/sage_size")
+    let s = trim(io.readfile("/tmp/sage_size"))
+    if s == "" or s == nil:
+        return [24, 80]
+    let parts = split(s, " ")
+    if len(parts) < 2:
+        return [24, 80]
+    return [tonumber(parts[0]), tonumber(parts[1])]
+
+proc draw_status_bar():
+    if not IS_TTY:
+        return
+    let size = get_term_size()
+    let rows = size[0]
+    let cols = size[1]
+    
+    let left = " 🐚 SageShell"
+    let mid = get_time()
+    let right = get_temp_f() + " "
+    
+    let left_len = len(left) - 1 # Adjusted for emoji
+    let mid_len = len(mid)
+    let right_len = len(right)
+    
+    let pad_left_len = (cols / 2 | 0) - left_len - (mid_len / 2 | 0)
+    if pad_left_len < 1:
+        pad_left_len = 1
+        
+    let pad_right_len = cols - left_len - pad_left_len - mid_len - right_len
+    if pad_right_len < 1:
+        pad_right_len = 1
+    
+    let bar = ESC + "[44;37m" + left
+    for i in range(pad_left_len):
+        bar = bar + " "
+    bar = bar + mid
+    for i in range(pad_right_len):
+        bar = bar + " "
+    bar = bar + right + RESET
+    
+    # Save cursor, move to bottom, print bar, restore cursor
+    let cmd = "printf '" + ESC + "[s" + ESC + "[" + str(rows) + ";1H" + bar + ESC + "[u'"
+    sys.exec(cmd)
+
 proc print_prompt():
     let p = GREEN + USER + "@" + HOST + RESET + " " + CYAN + BOLD + CWD + RESET + " 🌿 "
     io.writefile("/tmp/sage_prompt", p)
@@ -108,7 +169,6 @@ proc get_completions(line):
     let results = []
     
     if last_space == -1:
-        # Complete commands (Built-ins + PATH)
         let builtins = ["exit", "quit", "help", "cd", "clear"]
         for i in range(len(builtins)):
             if starts_with(builtins[i], word):
@@ -120,7 +180,6 @@ proc get_completions(line):
             for i in range(len(dirs)):
                 let d = dirs[i]
                 if io.isdir(d):
-                    # We use ls -1 because Sage might not have a full directory iterator yet
                     sys.exec("ls -1 " + d + " 2>/dev/null > /tmp/sage_path_ls")
                     let content = io.readfile("/tmp/sage_path_ls")
                     if content != nil:
@@ -128,7 +187,6 @@ proc get_completions(line):
                         for j in range(len(files)):
                             let f = trim(files[j])
                             if starts_with(f, word):
-                                # Check if f is already in results to avoid duplicates
                                 let exists = false
                                 for k in range(len(results)):
                                     if results[k] == f:
@@ -136,11 +194,9 @@ proc get_completions(line):
                                 if not exists:
                                     push(results, f)
     else:
-        # Complete paths
         let dir = "."
         let prefix = word
         if string.contains(word, "/"):
-            # Find the last slash
             let last_slash = -1
             for i in range(len(word)):
                 if word[i] == "/":
@@ -178,6 +234,7 @@ proc sage_readline():
     sys.exec("stty -icanon -echo")
     
     while true:
+        draw_status_bar()
         suggestion = find_suggestion(line)
         sys.exec("printf '\\r" + ESC + "[K'")
         print_prompt()

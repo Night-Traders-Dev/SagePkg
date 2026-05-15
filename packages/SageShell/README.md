@@ -11,7 +11,8 @@ An interactive fish-like shell written in [SageLang](https://github.com/Night-Tr
 - **📜 History**: Navigate through previous commands with searching (Up/Down).
 - **🎨 Syntax Highlighting**: Real-time coloring for built-ins and external commands.
 - **💡 Autosuggestions**: History-based suggestions (Right Arrow or Tab to accept).
-- **⌨️ Tab Completion**: Basic path completion for files and directories.
+- **⌨️ Tab Completion**: Advanced command and path completion.
+- **📊 Status Bar**: Dynamic bottom bar showing current shell, time, and CPU temperature (°F).
 
 ## Project Structure
 - `universal/`: Source code.
