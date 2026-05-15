@@ -44,12 +44,6 @@ proc get_user():
         return "user"
     return u
 
-proc get_host():
-    let h = io.readfile("/etc/hostname")
-    if h == nil:
-        return "sage"
-    return trim(h)
-
 proc starts_with(s, prefix):
     if len(s) < len(prefix):
         return false
@@ -63,7 +57,6 @@ proc split_first(s, sep):
 
 let CWD = get_cwd()
 let USER = get_user()
-let HOST = get_host()
 
 proc get_temp_f():
     sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null > /tmp/sage_temp")
@@ -127,7 +120,7 @@ proc draw_status_bar():
     sys.exec(cmd)
 
 proc print_prompt():
-    let p = GREEN + USER + "@" + HOST + RESET + " " + CYAN + BOLD + CWD + RESET + " 🌿 "
+    let p = GREEN + USER + RESET + " " + CYAN + BOLD + CWD + RESET + " 🌿 "
     io.writefile("/tmp/sage_prompt", p)
     sys.exec("cat /tmp/sage_prompt | tr -d '\\n'")
 
