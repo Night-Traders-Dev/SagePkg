@@ -1,0 +1,25 @@
+name: Validate Packages
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install SageLang
+      run: |
+        curl -sL https://raw.githubusercontent.com/Night-Traders-Dev/SageLang/main/install.sh | bash
+        echo "/home/runner/.sage/bin" >> $GITHUB_PATH
+
+    - name: Run Validation Script
+      run: |
+        # Ensure json.sage is available for the script (bundled in root)
+        cp json.sage scripts/json.sage
+        sage scripts/validate.sage
