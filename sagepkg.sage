@@ -208,7 +208,7 @@ proc cmd_update():
                         "new": new_pkgs[j]["version"]
                     })
     
-    # Special check for sagepkg self-update
+        # Special check for sagepkg self-update
     let sagepkg_in_updates = false
     for i in range(len(updates)):
         if updates[i]["name"] == "sagepkg":
@@ -216,7 +216,7 @@ proc cmd_update():
             
     if not sagepkg_in_updates:
         # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.0.1" # Default/Current version
+        let current_ver = "1.0.2" # Default/Current version
         if installed["packages"]["sagepkg"] != nil:
             current_ver = installed["packages"]["sagepkg"]["version"]
             
@@ -237,7 +237,7 @@ proc cmd_update():
             print "  " + BOLD + u["name"] + RESET + ": " + u["old"] + " -> " + GREEN + u["new"] + RESET
         
         print ""
-        sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo $ans > " + TEMP_FILE)
+        sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \"$ans\" > " + TEMP_FILE)
         let ans = trim(io.readfile(TEMP_FILE))
         sys.exec("rm -f " + TEMP_FILE)
         
