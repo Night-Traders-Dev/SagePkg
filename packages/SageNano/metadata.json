@@ -1,6 +1,11 @@
 {
   "name": "SageNano",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "universal/main.sage",
-  "files": ["universal/main.sage"]
+  "files": [
+    "universal/main.sage",
+    "universal/ui.sage",
+    "universal/buffer.sage",
+    "universal/editor.sage"
+  ]
 }
