@@ -398,21 +398,19 @@ proc sage_readline():
                     if dir == 65: # Up
                         if h_search == "":
                             h_search = line
-                        let found = false
                         let idx = HISTORY_INDEX - 1
                         while idx >= 0:
                             if starts_with(HISTORY[idx], h_search):
                                 HISTORY_INDEX = idx
                                 line = HISTORY[idx]
-                                found = true
                                 break
                             idx = idx - 1
                         continue
                     if dir == 66: # Down
                         if h_search == "":
                             h_search = line
-                        let found = false
                         let idx = HISTORY_INDEX + 1
+                        let found = false
                         while idx < len(HISTORY):
                             if starts_with(HISTORY[idx], h_search):
                                 HISTORY_INDEX = idx
@@ -449,7 +447,7 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print "SageShell v1.3.5"
+        print "SageShell v1.3.7"
         return true
         
     if cmd_line == "help":
