@@ -5,7 +5,7 @@ import buffer
 
 class Editor:
     proc init():
-        self.buffer = buffer.Buffer()
+        self.buffer = Buffer()
         self.filename = ""
         self.message = ""
         self.scroll_y = 0
@@ -45,7 +45,7 @@ class Editor:
         self.message = "Wrote " + str(len(self.buffer.lines)) + " lines"
 
     proc draw():
-        let size = ui.get_term_size()
+        let size = get_term_size()
         self.cols = size[1]
         self.rows = size[0]
         
@@ -55,24 +55,24 @@ class Editor:
         if self.buffer.cy >= self.scroll_y + self.rows - 4:
             self.scroll_y = self.buffer.cy - (self.rows - 4) + 1
             
-        let out = ui.hide_cursor()
-        out = out + ui.set_cursor(1, 1)
-        out = out + ui.draw_title_bar(self.cols, self.filename, self.buffer.modified)
+        let out = hide_cursor()
+        out = out + set_cursor(1, 1)
+        out = out + draw_title_bar(self.cols, self.filename, self.buffer.modified)
         
         for y in range(self.rows - 4):
             let file_y = self.scroll_y + y
             if file_y < len(self.buffer.lines):
                 let l = self.buffer.lines[file_y]
                 out = out + string.substr(l, 0, self.cols)
-            out = out + ui.clear_line() + "\r\n"
+            out = out + clear_line() + "\r\n"
             
-        out = out + ui.draw_status_bar(self.cols, self.message)
-        out = out + ui.draw_shortcut_bar(self.cols)
+        out = out + draw_status_bar(self.cols, self.message)
+        out = out + draw_shortcut_bar(self.cols)
         
         let screen_y = self.buffer.cy - self.scroll_y + 2
         let screen_x = self.buffer.cx + 1
-        out = out + ui.set_cursor(screen_y, screen_x)
-        out = out + ui.show_cursor()
+        out = out + set_cursor(screen_y, screen_x)
+        out = out + show_cursor()
         
         io.writefile("/tmp/sage_nano_draw", out)
         sys.exec("cat /tmp/sage_nano_draw")
@@ -117,7 +117,7 @@ class Editor:
 
     proc show_help():
         sys.exec("clear")
-        print ui.REVERSE + " SageNano Help " + ui.RESET
+        print REVERSE + " SageNano Help " + RESET
         print " ^G (F1)      Display this help text"
         print " ^X (F2)      Exit from nano"
         print " ^O (F3)      Write the current file to disk"
@@ -173,9 +173,11 @@ class Editor:
         elif code == 3: # ^C
             self.message = "line " + str(self.buffer.cy + 1) + "/" + str(len(self.buffer.lines)) + ", col " + str(self.buffer.cx + 1) + "/" + str(len(self.buffer.lines[self.buffer.cy]) + 1)
         elif code == 25: # ^Y (Prev Page)
-            for i in range(self.rows - 4): self.buffer.move_up()
+            for i in range(self.rows - 4):
+                self.buffer.move_up()
         elif code == 22: # ^V (Next Page)
-            for i in range(self.rows - 4): self.buffer.move_down()
+            for i in range(self.rows - 4):
+                self.buffer.move_down()
         elif code == 13 or code == 10: # Enter
             self.buffer.do_enter()
         elif code == 127 or code == 8: # Backspace
@@ -188,19 +190,25 @@ class Editor:
                 let n2 = io.readfile("/tmp/sage_nano_key")
                 if n2 != nil:
                     let d = ord(n2[0])
-                    if d == 65: self.buffer.move_up()
-                    elif d == 66: self.buffer.move_down()
-                    elif d == 67: self.buffer.move_right()
-                    elif d == 68: self.buffer.move_left()
+                    if d == 65:
+                        self.buffer.move_up()
+                    elif d == 66:
+                        self.buffer.move_down()
+                    elif d == 67:
+                        self.buffer.move_right()
+                    elif d == 68:
+                        self.buffer.move_left()
                     elif d == 51: # Delete key (Esc[3~)
                         sys.exec("dd bs=1 count=1 2>/dev/null > /dev/null")
                         self.buffer.do_delete()
                     elif d == 53: # PgUp (Esc[5~)
                         sys.exec("dd bs=1 count=1 2>/dev/null > /dev/null")
-                        for i in range(self.rows - 4): self.buffer.move_up()
+                        for i in range(self.rows - 4):
+                            self.buffer.move_up()
                     elif d == 54: # PgDn (Esc[6~)
                         sys.exec("dd bs=1 count=1 2>/dev/null > /dev/null")
-                        for i in range(self.rows - 4): self.buffer.move_down()
+                        for i in range(self.rows - 4):
+                            self.buffer.move_down()
         elif code >= 32 and code <= 126:
             self.buffer.insert_char(ch)
 
@@ -217,12 +225,17 @@ class Editor:
         sys.exec("clear")
 
 proc trim(s):
-    if s == nil: return ""
+    if s == nil:
+        return ""
     let si = 0
-    while si < len(s) and (s[si] == " " or s[si] == "\n" or s[si] == "\r" or s[si] == "\t"): si = si + 1
+    while si < len(s) and (s[si] == " " or s[si] == "\n" or s[si] == "\r" or s[si] == "\t"):
+        si = si + 1
     let ei = len(s) - 1
-    while ei >= si and (s[ei] == " " or s[ei] == "\n" or s[ei] == "\r" or s[ei] == "\t"): ei = ei - 1
-    if ei < si: return ""
+    while ei >= si and (s[ei] == " " or s[ei] == "\n" or s[ei] == "\r" or s[ei] == "\t"):
+        ei = ei - 1
+    if ei < si:
+        return ""
     let res = ""
-    for i in range(ei - si + 1): res = res + s[si + i]
+    for i in range(ei - si + 1):
+        res = res + s[si + i]
     return res

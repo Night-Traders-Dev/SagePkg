@@ -1,3 +1,5 @@
+import string
+
 class Buffer:
     proc init():
         self.lines = [""]

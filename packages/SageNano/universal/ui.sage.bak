@@ -7,8 +7,8 @@ let REVERSE = ESC + "[7m"
 let BOLD = ESC + "[1m"
 
 proc get_term_size():
-    print("stty size 2>/dev/null > /tmp/sage_nano_size")
-    let s = ""
+    sys.exec("stty size 2>/dev/null > /tmp/sage_nano_size")
+    let s = io.readfile("/tmp/sage_nano_size")
     if s == "" or s == nil:
         return [24, 80]
     let parts = split(s, " ")
@@ -47,24 +47,24 @@ proc draw_title_bar(cols, filename, modified):
     while len(line) < cols:
         line = line + " "
     
-    return REVERSE + line + RESET + "\r\n"
+    return REVERSE + string.substr(line, 0, cols) + RESET + "\r\n"
 
 proc draw_status_bar(cols, message):
     let line = message
     while len(line) < cols:
         line = line + " "
-    return REVERSE + line + RESET + "\r\n"
+    return REVERSE + string.substr(line, 0, cols) + RESET + "\r\n"
 
 proc draw_shortcut_bar(cols):
     let s1 = "^G Help      ^O Write Out  ^W Where Is   ^K Cut Text   ^J Justify    ^C Cur Pos"
     let s2 = "^X Exit      ^R Read File  ^\\ Replace    ^U Uncut Text ^T To Spell   ^Y Prev Page"
     
     # We'll actually only implement a subset but show the 1:1 UI
-    let line1 = s1
+    let line1 = string.substr(s1, 0, cols)
     while len(line1) < cols:
         line1 = line1 + " "
     
-    let line2 = s2
+    let line2 = string.substr(s2, 0, cols)
     while len(line2) < cols:
         line2 = line2 + " "
     

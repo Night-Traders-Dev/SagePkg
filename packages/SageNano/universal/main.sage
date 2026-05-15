@@ -2,7 +2,7 @@ import sys
 import editor
 
 proc main():
-    let ed = editor.Editor()
+    let ed = Editor()
     let args = sys.args()
     if len(args) > 2:
         ed.load(args[2])
