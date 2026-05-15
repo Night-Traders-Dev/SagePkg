@@ -1,7 +1,7 @@
 import sys
 import io
-import ui
-import buffer
+from ui import get_term_size, draw_title_bar, draw_status_bar, draw_shortcut_bar, set_cursor, hide_cursor, show_cursor, clear_line, REVERSE, RESET, BOLD
+from buffer import Buffer
 
 class Editor:
     proc init():
@@ -63,7 +63,7 @@ class Editor:
             let file_y = self.scroll_y + y
             if file_y < len(self.buffer.lines):
                 let l = self.buffer.lines[file_y]
-                out = out + string.substr(l, 0, self.cols)
+                out = out + l[0:self.cols]
             out = out + clear_line() + "\r\n"
             
         out = out + draw_status_bar(self.cols, self.message)
@@ -103,11 +103,11 @@ class Editor:
                 start = self.buffer.cx + 1
             
             if start < len(line):
-                let sub = string.substr(line, start, len(line) - start)
-                if string.contains(sub, query):
+                let sub = line[start:len(line)]
+                if len(split(sub, query)) > 1:
                     # Find exact index
                     for x in range(len(sub) - len(query) + 1):
-                        if string.substr(sub, x, len(query)) == query:
+                        if sub[x:x+len(query)] == query:
                             self.buffer.cy = file_y
                             self.buffer.cx = start + x
                             self.message = "Found " + query

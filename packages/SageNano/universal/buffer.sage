@@ -1,4 +1,4 @@
-import string
+
 
 class Buffer:
     proc init():
@@ -10,14 +10,14 @@ class Buffer:
 
     proc insert_char(ch):
         let l = self.lines[self.cy]
-        self.lines[self.cy] = string.substr(l, 0, self.cx) + ch + string.substr(l, self.cx, len(l) - self.cx)
+        self.lines[self.cy] = l[0:self.cx] + ch + l[self.cx:len(l)]
         self.cx = self.cx + 1
         self.modified = true
 
     proc do_enter():
         let l = self.lines[self.cy]
-        let left = string.substr(l, 0, self.cx)
-        let right = string.substr(l, self.cx, len(l) - self.cx)
+        let left = l[0:self.cx]
+        let right = l[self.cx:len(l)]
         self.lines[self.cy] = left
         
         let new_lines = []
@@ -34,7 +34,7 @@ class Buffer:
     proc do_backspace():
         if self.cx > 0:
             let l = self.lines[self.cy]
-            self.lines[self.cy] = string.substr(l, 0, self.cx - 1) + string.substr(l, self.cx, len(l) - self.cx)
+            self.lines[self.cy] = l[0:self.cx-1] + l[self.cx:len(l)]
             self.cx = self.cx - 1
             self.modified = true
         else:
@@ -56,7 +56,7 @@ class Buffer:
     proc do_delete():
         if self.cx < len(self.lines[self.cy]):
             let l = self.lines[self.cy]
-            self.lines[self.cy] = string.substr(l, 0, self.cx) + string.substr(l, self.cx + 1, len(l) - self.cx - 1)
+            self.lines[self.cy] = l[0:self.cx] + l[self.cx+1:len(l)]
             self.modified = true
         elif self.cy < len(self.lines) - 1:
             let l = self.lines[self.cy]

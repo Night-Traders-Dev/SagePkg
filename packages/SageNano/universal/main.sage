@@ -1,5 +1,5 @@
 import sys
-import editor
+from editor import Editor
 
 proc main():
     let ed = Editor()
