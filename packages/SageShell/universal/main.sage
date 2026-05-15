@@ -38,7 +38,11 @@ proc get_cwd():
     let cwd = io.readfile("/tmp/sage_cwd")
     if cwd == nil:
         return "/"
-    return trim(cwd)
+    let c = trim(cwd)
+    let h = sys.getenv("HOME")
+    if h != nil and starts_with(c, h):
+        return "~" + string.substr(c, len(h), len(c) - len(h))
+    return c
 
 proc get_user():
     let u = sys.getenv("USER")
@@ -63,17 +67,23 @@ let USER = get_user()
 let ENV_PATH = sys.getenv("PATH")
 let home = sys.getenv("HOME")
 
-# 1. Initialize with robust defaults if PATH is empty or minimal
-if ENV_PATH == nil or len(ENV_PATH) < 10:
+if ENV_PATH == nil or len(ENV_PATH) < 5:
     ENV_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# 2. Force include ~/.sagepkg/bin
 if home != nil:
     let s_bin = home + "/.sagepkg/bin"
     if not string.contains(ENV_PATH, s_bin):
         ENV_PATH = s_bin + ":" + ENV_PATH
+    else:
+        # Move it to the front if it's already there
+        let parts = split(ENV_PATH, ":")
+        let new_path = s_bin
+        for i in range(len(parts)):
+            if parts[i] != s_bin and len(parts[i]) > 0:
+                new_path = new_path + ":" + parts[i]
+        ENV_PATH = new_path
 
-# 3. Ensure critical system paths are present
+# Ensure critical system paths
 let sys_paths = ["/usr/local/bin", "/usr/bin", "/bin"]
 for i in range(len(sys_paths)):
     if not string.contains(ENV_PATH, sys_paths[i]):
@@ -112,11 +122,11 @@ proc draw_status_bar():
     let rows = size[0]
     let cols = size[1]
     
-    let left = " 🐚 SageShell"
+    let left = " 🐚 SageShell " + BOLD + CWD + RESET
     let mid = get_time()
     let right = get_temp_f() + " "
     
-    let left_len = len(left) - 1 # Adjusted for emoji
+    let left_len = len(left) - 10 # Adjusted for emoji and bold
     let mid_len = len(mid)
     let right_len = len(right)
     
@@ -150,7 +160,7 @@ proc print_line_raw(l):
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc is_builtin(cmd):
-    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source":
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source" or cmd == "reload":
         return true
     return false
 
