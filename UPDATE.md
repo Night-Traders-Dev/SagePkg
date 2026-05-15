@@ -1,5 +1,11 @@
 # SagePkg Updates
 
+## [1.5.0] - 2026-05-15
+### Changed
+- **SageFetch**: Switched to script-only mode (v1.1.0) to resolve `SIGSEGV` issues with outdated binaries.
+- **SageShell**: Switched to script-only mode (v1.2.0) for better stability and consistent terminal behavior.
+- **SagePkg**: Improved package installation logic to handle script wrappers more efficiently.
+
 ## [1.4.0] - 2026-05-15
 ### Added
 - **SagePkg**: Bundled `json.sage` dependency to ensure cross-platform compatibility.
