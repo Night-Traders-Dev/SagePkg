@@ -61,12 +61,13 @@ let CWD = get_cwd()
 let USER = get_user()
 
 let ENV_PATH = sys.getenv("PATH")
+if ENV_PATH == nil:
+    ENV_PATH = "/usr/local/bin:/usr/bin:/bin"
+
 let home = sys.getenv("HOME")
 if home != nil:
     let s_bin = home + "/.sagepkg/bin"
-    if ENV_PATH == nil:
-        ENV_PATH = s_bin
-    elif not string.contains(ENV_PATH, s_bin):
+    if not string.contains(ENV_PATH, s_bin):
         ENV_PATH = s_bin + ":" + ENV_PATH
 
 proc get_temp_f():
@@ -140,7 +141,7 @@ proc print_line_raw(l):
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc is_builtin(cmd):
-    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env":
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version":
         return true
     return false
 
@@ -428,9 +429,13 @@ proc process_command(cmd_line):
         sys.exec("clear")
         return true
         
+    if cmd_line == "version":
+        print "SageShell v1.3.3"
+        return true
+        
     if cmd_line == "help":
         print "SageShell - A fish clone in Sage"
-        print "Built-in commands: cd, clear, help, exit, export, env"
+        print "Built-in commands: cd, clear, help, exit, export, env, version"
         print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
         return true
         
