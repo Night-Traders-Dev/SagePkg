@@ -62,13 +62,19 @@ let USER = get_user()
 
 let ENV_PATH = sys.getenv("PATH")
 if ENV_PATH == nil:
-    ENV_PATH = "/usr/local/bin:/usr/bin:/bin"
+    ENV_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 let home = sys.getenv("HOME")
 if home != nil:
     let s_bin = home + "/.sagepkg/bin"
     if not string.contains(ENV_PATH, s_bin):
         ENV_PATH = s_bin + ":" + ENV_PATH
+
+# Ensure basic system paths are ALWAYS present if they aren't
+let sys_paths = ["/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+for i in range(len(sys_paths)):
+    if not string.contains(ENV_PATH, sys_paths[i]):
+        ENV_PATH = ENV_PATH + ":" + sys_paths[i]
 
 proc get_temp_f():
     sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null > /tmp/sage_temp")
@@ -225,12 +231,12 @@ proc get_completions(line):
     let results = []
     
     if last_space == -1:
-        let builtins = ["exit", "quit", "help", "cd", "clear"]
+        let builtins = ["exit", "quit", "help", "cd", "clear", "export", "env", "version"]
         for i in range(len(builtins)):
             if starts_with(builtins[i], word):
                 push(results, builtins[i])
         
-        let path = sys.getenv("PATH")
+        let path = ENV_PATH
         if path != nil:
             let dirs = split(path, ":")
             for i in range(len(dirs)):
@@ -430,7 +436,7 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print "SageShell v1.3.3"
+        print "SageShell v1.3.4"
         return true
         
     if cmd_line == "help":
@@ -478,7 +484,7 @@ proc process_command(cmd_line):
                 CWD = res
         return true
     
-    let exec_cmd = "cd " + CWD + " && PATH=" + ENV_PATH + " " + cmd_line
+    let exec_cmd = "export PATH=" + chr(34) + ENV_PATH + chr(34) + " && cd " + CWD + " && " + cmd_line
     sys.exec(exec_cmd)
     return true
 
