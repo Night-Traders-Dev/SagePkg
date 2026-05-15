@@ -27,6 +27,13 @@
       "description": "Common terminal utilities in SageLang",
       "author": "Gemini CLI",
       "architectures": ["x86_64", "aarch64", "riscv64", "universal"]
+    },
+    {
+      "name": "SageNano",
+      "version": "1.0.0",
+      "description": "A nano text editor clone in Sage",
+      "author": "Gemini CLI",
+      "architectures": ["x86_64", "aarch64", "riscv64", "universal"]
     }
   ]
 }
