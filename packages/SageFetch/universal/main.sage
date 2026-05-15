@@ -117,7 +117,38 @@ proc get_uptime_info():
     result = result + str(minutes) + " mins"
     return result
 
+proc get_shell_info():
+    let shell = sys.getenv("SHELL")
+    if shell == nil:
+        # Try to detect via parent process
+        sys.exec("ps -p $PPID -o comm= > /tmp/sage_shell_tmp")
+        shell = trim(io.readfile("/tmp/sage_shell_tmp"))
+        if shell == "" or shell == nil:
+            return "unknown"
+    
+    # Just show the basename
+    if string.contains(shell, "/"):
+        let last_slash = -1
+        for i in range(len(shell)):
+            if shell[i] == "/":
+                last_slash = i
+        shell = string.substr(shell, last_slash + 1, len(shell) - last_slash - 1)
+    
+    return shell
+
 proc get_cpu_info():
+    # Try lscpu first for ARM models
+    sys.exec("lscpu > /tmp/sage_lscpu 2>/dev/null")
+    let lscpu_content = io.readfile("/tmp/sage_lscpu")
+    if lscpu_content != nil and len(lscpu_content) > 0:
+        let lines = split_lines(lscpu_content)
+        for line in lines:
+            if string.contains(line, "Model name:"):
+                let parts = split(line, ":")
+                if len(parts) > 1:
+                    return trim(parts[1])
+
+    # Fallback to /proc/cpuinfo
     let content = read_proc_file("/proc/cpuinfo")
     if content == nil or len(content) == 0:
         return "unknown"
@@ -129,6 +160,12 @@ proc get_cpu_info():
         if len(line) > 11:
             if string.substr(line, 0, 11) == "Model\t\t: ":
                 return string.substr(line, 11, len(line) - 11)
+        # ARM specific fields in some /proc/cpuinfo
+        if string.contains(line, "CPU part"):
+            let parts = split(line, ":")
+            if len(parts) > 1:
+                return "ARM Part " + trim(parts[1])
+                
     return "Generic CPU"
 
 proc get_mem_info():
@@ -206,7 +243,7 @@ let dash = "------------------------"
 let os_info = get_os_info()
 let kernel_info = get_kernel_info()
 let uptime_info = get_uptime_info()
-let shell_info = sys.getenv("SHELL")
+let shell_info = get_shell_info()
 let cpu_info = get_cpu_info()
 let mem_info = get_mem_info()
 
