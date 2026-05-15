@@ -1,5 +1,13 @@
 # SagePkg Updates
 
+## [1.4.0] - 2026-05-15
+### Added
+- **SagePkg**: Bundled `json.sage` dependency to ensure cross-platform compatibility.
+- **SageShell**: Fixed missing imports and refactored to use standard `sys` and `io` modules.
+- **SageShell**: Fixed SageLang REPL support by ensuring correct terminal state and execution.
+- **SageFetch**: Fixed missing imports and refactored to use standard `sys` and `io` modules.
+- **SageFetch**: Improved OS, Kernel, and Hardware detection logic.
+
 ## [1.3.0] - 2026-05-15
 ### Added
 - **SagePkg**: Support for `riscv64` architecture.

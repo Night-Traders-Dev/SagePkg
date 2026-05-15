@@ -11,8 +11,9 @@ echo "Installing SagePkg..."
 mkdir -p "$BIN_DIR"
 mkdir -p "$PKGS_DIR"
 
-# Copy sagepkg.sage to bin
+# Copy sagepkg.sage and dependencies to bin
 cp sagepkg.sage "$BIN_DIR/sagepkg"
+cp json.sage "$BIN_DIR/json.sage"
 chmod +x "$BIN_DIR/sagepkg"
 
 echo "SagePkg script installed to $BIN_DIR/sagepkg"
