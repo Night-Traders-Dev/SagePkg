@@ -17,6 +17,27 @@ let HISTORY = []
 let HISTORY_INDEX = 0
 let IS_TTY = (sys.exec("[ -t 0 ]") == 0)
 
+proc load_history():
+    let home = sys.getenv("HOME")
+    if home == nil:
+        return
+    let h_file = home + "/.sageshell_history"
+    if io.exists(h_file):
+        let content = io.readfile(h_file)
+        if content != nil:
+            let lines = split(content, chr(10))
+            for i in range(len(lines)):
+                let l = trim(lines[i])
+                if len(l) > 0:
+                    push(HISTORY, l)
+
+proc save_history(line):
+    let home = sys.getenv("HOME")
+    if home == nil:
+        return
+    let h_file = home + "/.sageshell_history"
+    io.appendfile(h_file, line + chr(10))
+
 proc trim(s):
     if s == nil:
         return ""
@@ -160,7 +181,7 @@ proc print_line_raw(l):
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc is_builtin(cmd):
-    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source" or cmd == "reload" or cmd == "debug":
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env" or cmd == "version" or cmd == "source" or cmd == "reload" or cmd == "debug" or cmd == "history":
         return true
     return false
 
@@ -447,7 +468,7 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print BOLD + "SageShell" + RESET + " v1.3.9"
+        print BOLD + "SageShell" + RESET + " v1.4.0"
         print "Architecture: universal"
         return true
         
@@ -455,6 +476,12 @@ proc process_command(cmd_line):
         print "CWD:  " + CWD
         print "USER: " + USER
         print "PATH: " + ENV_PATH
+        print "HIST: " + str(len(HISTORY))
+        return true
+        
+    if cmd_line == "history":
+        for i in range(len(HISTORY)):
+            print " " + str(i + 1) + "  " + HISTORY[i]
         return true
         
     if cmd_line == "reload":
@@ -466,8 +493,8 @@ proc process_command(cmd_line):
 
     if cmd_line == "help":
         print "SageShell - A fish clone in Sage"
-        print "Built-in commands: cd, clear, help, exit, export, env, version, source, reload, debug"
-        print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
+        print "Built-in commands: cd, clear, help, exit, export, env, version, source, reload, debug, history"
+        print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar, Persistent History"
         return true
         
     if starts_with(cmd_line, "source "):
@@ -526,6 +553,7 @@ proc process_command(cmd_line):
     return true
 
 proc main():
+    load_history()
     print "Welcome to SageShell!"
     print "Type 'help' for commands, 'exit' to quit."
     
@@ -553,6 +581,7 @@ proc main():
             
         if len(HISTORY) == 0 or HISTORY[len(HISTORY)-1] != cmd_line:
             push(HISTORY, cmd_line)
+            save_history(cmd_line)
             
         if not process_command(cmd_line):
             break

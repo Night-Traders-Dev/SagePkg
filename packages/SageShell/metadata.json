@@ -1,6 +1,6 @@
 {
   "name": "SageShell",
-  "version": "1.3.9",
+  "version": "1.4.0",
   "main": "universal/main.sage",
   "files": ["universal/main.sage"]
 }
