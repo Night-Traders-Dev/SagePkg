@@ -10,7 +10,7 @@ let _io = io
 # ============================================================================
 # Version — single source of truth for self-update detection
 # ============================================================================
-let SAGEPKG_VERSION = "1.5.1"
+let SAGEPKG_VERSION = "1.5.2"
 
 # ANSI Colors
 let ESC = chr(27)
@@ -369,6 +369,7 @@ proc cmd_install(pkg_name):
         return
 
     let files = meta["files"]
+    print ""  # reserve a blank line so the progress bar's \r always has its own clean line
     for i in range(len(files)):
         let fname = files[i]
 
@@ -503,6 +504,7 @@ proc cmd_build(pkg_name):
 
     let files = meta["files"]
     let source_files = []
+    print ""  # reserve a blank line for the progress bar
     for i in range(len(files)):
         let fname = files[i]
 

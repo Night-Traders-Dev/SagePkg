@@ -4,7 +4,7 @@ import io
 # ============================================================================
 # Version
 # ============================================================================
-let SAGENANO_VERSION = "1.1.1"
+let SAGENANO_VERSION = "1.1.2"
 
 # ============================================================================
 # ANSI / Terminal helpers  (inlined from ui.sage)
@@ -273,7 +273,10 @@ class Editor:
             lns = [""]
         self.buffer.lines = lns
         self.buffer.modified = false
-        self.message = "Read " + str(len(lns)) + " lines"
+        let _lword = "lines"
+        if len(lns) == 1:
+            _lword = "line"
+        self.message = "Read " + str(len(lns)) + " " + _lword
         self.force_redraw = true
 
     proc save():
@@ -287,7 +290,10 @@ class Editor:
                 content = content + chr(10)
         io.writefile(self.filename, content)
         self.buffer.modified = false
-        self.message = "Wrote " + str(len(self.buffer.lines)) + " lines"
+        let _lword2 = "lines"
+        if len(self.buffer.lines) == 1:
+            _lword2 = "line"
+        self.message = "Wrote " + str(len(self.buffer.lines)) + " " + _lword2
 
     proc draw():
         let size = get_term_size()
