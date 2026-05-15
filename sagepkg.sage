@@ -4,6 +4,18 @@ import io
 import json
 import string
 
+# ANSI Colors
+let ESC = chr(27)
+let RESET = ESC + "[0m"
+let BOLD = ESC + "[1m"
+let GREEN = ESC + "[32m"
+let BLUE = ESC + "[34m"
+let CYAN = ESC + "[36m"
+let RED = ESC + "[31m"
+let YELLOW = ESC + "[33m"
+let MAGENTA = ESC + "[35m"
+let DIM = ESC + "[2m"
+
 let REPO_URL = "https://raw.githubusercontent.com/Night-Traders-Dev/SagePkg/main"
 
 let HOME = sys.getenv("HOME")
@@ -16,6 +28,42 @@ let BIN_DIR = CONFIG_DIR + "/bin"
 let INDEX_FILE = CONFIG_DIR + "/packages.json"
 let INSTALLED_FILE = CONFIG_DIR + "/installed.json"
 let TEMP_FILE = CONFIG_DIR + "/.tmp"
+
+# UI Helpers
+proc ui_info(msg):
+    print BLUE + BOLD + "info" + RESET + " " + msg
+
+proc ui_success(msg):
+    print GREEN + BOLD + "success" + RESET + " " + msg
+
+proc ui_warn(msg):
+    print YELLOW + BOLD + "warn" + RESET + " " + msg
+
+proc ui_error(msg):
+    print RED + BOLD + "error" + RESET + " " + msg
+
+proc ui_step(msg):
+    print CYAN + BOLD + "==>" + RESET + " " + BOLD + msg + RESET
+
+proc ui_hint(msg):
+    print DIM + "hint: " + msg + RESET
+
+proc ui_progress(current, total, prefix):
+    if total == 0:
+        return
+    let width = 20
+    let progress = (current * width / total) | 0
+    let bar = "["
+    for i in range(width):
+        if i < progress:
+            bar = bar + "="
+        elif i == progress:
+            bar = bar + ">"
+        else:
+            bar = bar + " "
+    bar = bar + "]"
+    let percent = (current * 100 / total) | 0
+    sys.exec("printf '\\r" + ESC + "[K" + CYAN + prefix + RESET + " " + bar + " " + str(percent) + "%%'")
 
 proc trim(s):
     if s == nil:
@@ -41,7 +89,7 @@ proc download_file(url, dest):
     let cmd = "curl -sL " + url + " -o " + dest
     let res = sys.exec(cmd)
     if res != 0:
-        print "Error: curl failed with exit code " + res
+        ui_error("curl failed with exit code " + str(res))
     return res == 0
 
 proc read_json(path):
@@ -114,29 +162,28 @@ proc cmd_init():
         if io.exists(config_file):
             let content = io.readfile(config_file)
             if not string.contains(content, full_bin_path):
-                print "Automatically adding " + full_bin_path + " to " + config_file + "..."
+                ui_info("Automatically adding " + full_bin_path + " to " + config_file + "...")
                 io.appendfile(config_file, chr(10) + "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
-                print "Success: PATH initialized. Please restart your shell."
+                ui_success("PATH initialized. Please restart your shell.")
         else:
-            # Only create for common shells if they are definitely being used
             if shell != "/bin/sh":
-                print "Creating " + config_file + " and setting PATH..."
+                ui_info("Creating " + config_file + " and setting PATH...")
                 io.writefile(config_file, "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
 
 proc cmd_update():
     cmd_init()
-    print "Updating package index..."
+    ui_step("Updating package index...")
     ensure_dir(CONFIG_DIR)
     let url = REPO_URL + "/packages.json"
     let new_index_file = CONFIG_DIR + "/packages_new.json"
     
     if not download_file(url, new_index_file):
-        print "Error: Failed to download index from " + url
+        ui_error("Failed to download index from " + url)
         return
 
     let new_index = read_json(new_index_file)
     if new_index == nil:
-        print "Error: Failed to parse new index."
+        ui_error("Failed to parse new index.")
         return
 
     let installed = read_json(INSTALLED_FILE)
@@ -161,56 +208,54 @@ proc cmd_update():
     
     if len(updates) > 0:
         print ""
-        print "The following packages can be updated:"
+        ui_info("The following packages can be updated:")
         for i in range(len(updates)):
             let u = updates[i]
-            print "  " + u["name"] + ": " + u["old"] + " -> " + u["new"]
+            print "  " + BOLD + u["name"] + RESET + ": " + u["old"] + " -> " + GREEN + u["new"] + RESET
         
         print ""
-        sys.exec("printf 'Update these packages? (y/n): ' && read ans && echo \$ans > " + TEMP_FILE)
+        sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \$ans > " + TEMP_FILE)
         let ans = trim(io.readfile(TEMP_FILE))
         sys.exec("rm -f " + TEMP_FILE)
         
         if ans == "y" or ans == "Y":
-            # Overwrite old index first so cmd_install works with new metadata
             sys.exec("mv " + new_index_file + " " + INDEX_FILE)
             for i in range(len(updates)):
                 cmd_install(updates[i]["name"])
-            print "Success: All packages updated."
+            ui_success("All packages updated.")
         else:
             sys.exec("mv " + new_index_file + " " + INDEX_FILE)
-            print "Update cancelled. Index updated."
+            ui_info("Update cancelled. Index updated.")
     else:
         sys.exec("mv " + new_index_file + " " + INDEX_FILE)
-        print "Success: Index updated. All packages are up to date."
+        ui_success("Index updated. All packages are up to date.")
 
 proc cmd_list():
     let data = read_json(INDEX_FILE)
     if data == nil:
-        print "Error: No package index found. Run 'update' first."
+        ui_error("No package index found. Run 'update' first.")
         return
     
-    print "Available packages:"
-    print "-------------------"
+    print BOLD + "Available packages:" + RESET
+    print DIM + "-------------------" + RESET
     let pkgs = data["packages"]
     for i in range(len(pkgs)):
         let p = pkgs[i]
-        print p["name"] + " (v" + p["version"] + ") - " + p["description"]
+        print GREEN + BOLD + p["name"] + RESET + " (v" + p["version"] + ") - " + p["description"]
 
 proc cmd_install(pkg_name):
-    # Sanitize input
     if pkg_name == nil or len(pkg_name) == 0:
-        print "Error: Invalid package name."
+        ui_error("Invalid package name.")
         return
     for i in range(len(pkg_name)):
         let c = pkg_name[i]
         if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "-" or c == "_"):
-            print "Error: Package name contains invalid characters."
+            ui_error("Package name contains invalid characters.")
             return
 
     let index_data = read_json(INDEX_FILE)
     if index_data == nil:
-        print "Error: No package index found. Run 'update' first."
+        ui_error("No package index found. Run 'update' first.")
         return
     
     let pkg_info = nil
@@ -220,7 +265,7 @@ proc cmd_install(pkg_name):
             pkg_info = pkgs[i]
     
     if pkg_info == nil:
-        print "Error: Package '" + pkg_name + "' not found in index."
+        ui_error("Package '" + pkg_name + "' not found in index.")
         return
     
     let arch = get_arch()
@@ -231,33 +276,34 @@ proc cmd_install(pkg_name):
             arch_supported = true
     
     if not arch_supported:
-        print "Binary not available for architecture: " + arch + ". Falling back to source build."
+        ui_warn("Binary not available for architecture: " + arch + ". Falling back to source build.")
         cmd_build(pkg_name)
         return
     
-    print "Installing " + pkg_name + " for " + arch + "..."
+    ui_step("Installing " + BOLD + pkg_name + RESET + " for " + arch + "...")
     ensure_dir(CONFIG_DIR)
     ensure_dir(PKGS_DIR)
     ensure_dir(BIN_DIR)
     let pkg_dir = PKGS_DIR + "/" + pkg_name
     ensure_dir(pkg_dir)
     
-    # Download metadata
+    ui_info("Downloading metadata...")
     let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json"
     let meta_file = pkg_dir + "/metadata.json"
     if not download_file(meta_url, meta_file):
-        print "Error: Failed to download metadata for " + pkg_name
+        ui_error("Failed to download metadata.")
         return
     
     let meta = read_json(meta_file)
     if meta == nil:
-        print "Error: Failed to parse metadata for " + pkg_name
+        ui_error("Failed to parse metadata.")
         return
     
-    # Download files
     let files = meta["files"]
     for i in range(len(files)):
         let fname = files[i]
+        ui_progress(i, len(files), "Downloading files")
+        
         let f_url = nil
         if string.contains(fname, "universal/"):
             f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
@@ -266,21 +312,21 @@ proc cmd_install(pkg_name):
         
         let f_dest = pkg_dir + "/" + fname
         if string.contains(fname, "/"):
-            # Ensure subdirectories exist (e.g. universal/)
             let parts = split(fname, "/")
             if len(parts) > 1:
-                let sub_dir = pkg_dir + "/" + parts[0]
-                ensure_dir(sub_dir)
+                ensure_dir(pkg_dir + "/" + parts[0])
 
         if not download_file(f_url, f_dest):
-            print "Error: Failed to download file: " + fname
+            print ""
+            ui_error("Failed to download file: " + fname)
             return
     
-    # Create wrapper or copy binary
+    ui_progress(len(files), len(files), "Downloading files")
+    print ""
+
+    ui_info("Creating binary wrappers...")
     let main_file = meta["main"]
     let bin_path = BIN_DIR + "/" + pkg_name
-    
-    # Check if a binary with the package name exists for this arch
     let has_binary = false
     for i in range(len(files)):
         if files[i] == pkg_name:
@@ -292,15 +338,12 @@ proc cmd_install(pkg_name):
         io.writefile(bin_path, wrapper)
         sys.exec("chmod +x " + full_binary_path)
         sys.exec("chmod +x " + bin_path)
-        print "Created binary wrapper: " + bin_path
     elif main_file != nil:
         let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
         let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
         io.writefile(bin_path, wrapper)
         sys.exec("chmod +x " + bin_path)
-        print "Created script wrapper: " + bin_path
 
-    # Record installation
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
         installed = {"packages": {}}
@@ -312,30 +355,28 @@ proc cmd_install(pkg_name):
     }
     write_json(INSTALLED_FILE, installed)
     
-    print "Success: " + pkg_name + " installed."
+    ui_success(BOLD + pkg_name + RESET + " installed successfully.")
     
-    # PATH check
     let full_bin_path = get_full_path(BIN_DIR)
     let path_env = sys.getenv("PATH")
     if string.find(path_env, full_bin_path) == -1:
         print ""
-        print "NOTE: To run '" + pkg_name + "' by name, add this to your PATH:"
+        ui_hint("To run '" + BOLD + pkg_name + RESET + "' by name, add this to your PATH:")
         print "  export PATH=" + chr(34) + full_bin_path + ":$PATH" + chr(34)
 
 proc cmd_build(pkg_name):
-    # Sanitize input
     if pkg_name == nil or len(pkg_name) == 0:
-        print "Error: Invalid package name."
+        ui_error("Invalid package name.")
         return
     for i in range(len(pkg_name)):
         let c = pkg_name[i]
         if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "-" or c == "_"):
-            print "Error: Package name contains invalid characters."
+            ui_error("Package name contains invalid characters.")
             return
 
     let index_data = read_json(INDEX_FILE)
     if index_data == nil:
-        print "Error: No package index found. Run 'update' first."
+        ui_error("No package index found. Run 'update' first.")
         return
     
     let pkg_info = nil
@@ -345,63 +386,64 @@ proc cmd_build(pkg_name):
             pkg_info = pkgs[i]
     
     if pkg_info == nil:
-        print "Error: Package '" + pkg_name + "' not found in index."
+        ui_error("Package '" + pkg_name + "' not found in index.")
         return
 
-    print "Building " + pkg_name + " from source..."
+    ui_step("Building " + BOLD + pkg_name + RESET + " from source...")
     ensure_dir(CONFIG_DIR)
     ensure_dir(PKGS_DIR)
     ensure_dir(BIN_DIR)
     let pkg_dir = PKGS_DIR + "/" + pkg_name
     ensure_dir(pkg_dir)
     
-    # Download metadata
+    ui_info("Downloading metadata...")
     let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json"
     let meta_file = pkg_dir + "/metadata.json"
     if not download_file(meta_url, meta_file):
-        print "Error: Failed to download metadata for " + pkg_name
+        ui_error("Failed to download metadata.")
         return
     
     let meta = read_json(meta_file)
     if meta == nil:
-        print "Error: Failed to parse metadata for " + pkg_name
+        ui_error("Failed to parse metadata.")
         return
 
-    # Download source files (universal ones)
     let files = meta["files"]
     let source_files = []
     for i in range(len(files)):
         let fname = files[i]
         if string.contains(fname, "universal/"):
+            ui_progress(i, len(files), "Downloading source")
             push(source_files, fname)
             let f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
             let f_dest = pkg_dir + "/" + fname
             
-            # Ensure subdirs
             if string.contains(fname, "/"):
                 let parts = split(fname, "/")
                 if len(parts) > 1:
                     ensure_dir(pkg_dir + "/" + parts[0])
                 
             if not download_file(f_url, f_dest):
-                print "Error: Failed to download source file: " + fname
+                print ""
+                ui_error("Failed to download source file: " + fname)
                 return
+    
+    ui_progress(len(files), len(files), "Downloading source")
+    print ""
 
-    # Compile
     let main_file = meta["main"]
     if main_file == nil:
-        print "Error: No main script defined in metadata for building."
+        ui_error("No main script defined in metadata.")
         return
 
     let target_bin = pkg_dir + "/" + pkg_name
+    ui_info("Compiling with Sage...")
     let compile_cmd = "sage --compile " + pkg_dir + "/" + main_file + " -o " + target_bin
-    print "Compiling: " + compile_cmd
     let res = sys.exec(compile_cmd)
     if res != 0:
-        print "Error: Compilation failed with exit code " + res
+        ui_error("Compilation failed with exit code " + str(res))
         return
 
-    # Create wrapper
     let bin_path = BIN_DIR + "/" + pkg_name
     let full_binary_path = get_full_path(target_bin)
     let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
@@ -409,7 +451,6 @@ proc cmd_build(pkg_name):
     sys.exec("chmod +x " + full_binary_path)
     sys.exec("chmod +x " + bin_path)
     
-    # Record installation
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
         installed = {"packages": {}}
@@ -422,62 +463,54 @@ proc cmd_build(pkg_name):
     }
     write_json(INSTALLED_FILE, installed)
     
-    print "Success: " + pkg_name + " built and installed."
+    ui_success(BOLD + pkg_name + RESET + " built and installed successfully.")
 
 proc cmd_remove(pkg_name):
     let installed = read_json(INSTALLED_FILE)
     if installed == nil or installed["packages"][pkg_name] == nil:
-        print "Error: Package '" + pkg_name + "' is not installed."
+        ui_error("Package '" + pkg_name + "' is not installed.")
         return
 
-    print "Removing " + pkg_name + "..."
-    
-    # Remove binary wrapper
+    ui_step("Removing " + BOLD + pkg_name + RESET + "...")
     let bin_path = BIN_DIR + "/" + pkg_name
     sys.exec("rm -f " + bin_path)
-    
-    # Remove package files
     let pkg_dir = PKGS_DIR + "/" + pkg_name
     sys.exec("rm -rf " + pkg_dir)
     
-    # Update installed.json
     dict_delete(installed["packages"], pkg_name)
     write_json(INSTALLED_FILE, installed)
-    
-    print "Success: " + pkg_name + " removed."
+    ui_success(BOLD + pkg_name + RESET + " removed.")
 
 proc cmd_installed():
     let installed = read_json(INSTALLED_FILE)
-    if installed == nil:
-        print "No packages installed."
-        return
-    if len(installed["packages"]) == 0:
-        print "No packages installed."
+    if installed == nil or len(installed["packages"]) == 0:
+        ui_info("No packages installed.")
         return
     
-    print "Installed packages:"
-    print "-------------------"
+    print BOLD + "Installed packages:" + RESET
+    print DIM + "-------------------" + RESET
     let names = dict_keys(installed["packages"])
     for i in range(len(names)):
         let name = names[i]
         let info = installed["packages"][name]
-        print name + " (v" + info["version"] + ")"
-
+        print GREEN + BOLD + name + RESET + " (v" + info["version"] + ")"
 
 proc main():
     let args = sys.args()
-    # Skip interpreter and script name
     let cmd_idx = 2
     if len(args) < 3:
-        print "Usage: sagepkg <command> [args]"
-        print "Commands:"
-        print "  update       Sync package index (auto-inits PATH)"
-        print "  list         List available packages"
+        print BOLD + CYAN + "SagePkg" + RESET + " - The SageLang Package Manager"
+        print ""
+        print BOLD + "Usage:" + RESET + " sagepkg <command> [args]"
+        print ""
+        print BOLD + "Commands:" + RESET
+        print "  update       Sync package index and check for updates"
+        print "  list         List all available packages"
         print "  install <p>  Install a package (binary or source build)"
-        print "  build <p>    Build a package from source"
-        print "  remove <p>   Remove an installed package"
-        print "  installed    List installed packages"
-        print "  init         Force initialize shell PATH"
+        print "  build <p>    Force build a package from source"
+        print "  remove <p>   Uninstall a package"
+        print "  installed    List all installed packages"
+        print "  init         Initialize shell PATH"
         return
 
     let cmd = args[cmd_idx]
@@ -487,17 +520,17 @@ proc main():
         cmd_list()
     elif cmd == "install":
         if len(args) < 4:
-            print "Error: Missing package name."
+            ui_error("Missing package name.")
         else:
             cmd_install(args[3])
     elif cmd == "build":
         if len(args) < 4:
-            print "Error: Missing package name."
+            ui_error("Missing package name.")
         else:
             cmd_build(args[3])
     elif cmd == "remove":
         if len(args) < 4:
-            print "Error: Missing package name."
+            ui_error("Missing package name.")
         else:
             cmd_remove(args[3])
     elif cmd == "installed":
@@ -505,6 +538,6 @@ proc main():
     elif cmd == "init":
         cmd_init()
     else:
-        print "Unknown command: " + cmd
+        ui_error("Unknown command: " + cmd)
 
 main()
