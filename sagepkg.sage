@@ -128,10 +128,61 @@ proc cmd_update():
     print "Updating package index..."
     ensure_dir(CONFIG_DIR)
     let url = REPO_URL + "/packages.json"
-    if download_file(url, INDEX_FILE):
-        print "Success: Index updated."
-    else:
+    let new_index_file = CONFIG_DIR + "/packages_new.json"
+    
+    if not download_file(url, new_index_file):
         print "Error: Failed to download index from " + url
+        return
+
+    let new_index = read_json(new_index_file)
+    if new_index == nil:
+        print "Error: Failed to parse new index."
+        return
+
+    let installed = read_json(INSTALLED_FILE)
+    let updates = []
+    
+    if installed != nil and installed["packages"] != nil:
+        let installed_names = dict_keys(installed["packages"])
+        let new_pkgs = new_index["packages"]
+        
+        for i in range(len(installed_names)):
+            let name = installed_names[i]
+            let current_ver = installed["packages"][name]["version"]
+            
+            for j in range(len(new_pkgs)):
+                if new_pkgs[j]["name"] == name:
+                    if new_pkgs[j]["version"] != current_ver:
+                        push(updates, {
+                            "name": name,
+                            "old": current_ver,
+                            "new": new_pkgs[j]["version"]
+                        })
+    
+    if len(updates) > 0:
+        print ""
+        print "The following packages can be updated:"
+        for i in range(len(updates)):
+            let u = updates[i]
+            print "  " + u["name"] + ": " + u["old"] + " -> " + u["new"]
+        
+        print ""
+        sys.exec("printf 'Update these packages? (y/n): ' && read ans && echo \$ans > " + TEMP_FILE)
+        let ans = trim(io.readfile(TEMP_FILE))
+        sys.exec("rm -f " + TEMP_FILE)
+        
+        if ans == "y" or ans == "Y":
+            # Overwrite old index first so cmd_install works with new metadata
+            sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+            for i in range(len(updates)):
+                cmd_install(updates[i]["name"])
+            print "Success: All packages updated."
+        else:
+            sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+            print "Update cancelled. Index updated."
+    else:
+        sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+        print "Success: Index updated. All packages are up to date."
 
 proc cmd_list():
     let data = read_json(INDEX_FILE)
