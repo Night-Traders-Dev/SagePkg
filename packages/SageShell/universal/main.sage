@@ -60,6 +60,15 @@ proc split_first(s, sep):
 let CWD = get_cwd()
 let USER = get_user()
 
+let ENV_PATH = sys.getenv("PATH")
+let home = sys.getenv("HOME")
+if home != nil:
+    let s_bin = home + "/.sagepkg/bin"
+    if ENV_PATH == nil:
+        ENV_PATH = s_bin
+    elif not string.contains(ENV_PATH, s_bin):
+        ENV_PATH = s_bin + ":" + ENV_PATH
+
 proc get_temp_f():
     sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null > /tmp/sage_temp")
     let t = io.readfile("/tmp/sage_temp")
@@ -131,7 +140,7 @@ proc print_line_raw(l):
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
 proc is_builtin(cmd):
-    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear":
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear" or cmd == "export" or cmd == "env":
         return true
     return false
 
@@ -191,7 +200,9 @@ proc command_exists(cmd):
         return false
     if starts_with(cmd, "./") or starts_with(cmd, "/"):
         return (sys.exec("test -x " + cmd) == 0)
-    let res = sys.exec("which " + cmd + " > /dev/null 2>&1")
+    
+    let check_cmd = "PATH=" + ENV_PATH + " which " + cmd + " > /dev/null 2>&1"
+    let res = sys.exec(check_cmd)
     return res == 0
 
 proc find_suggestion(line):
@@ -434,10 +445,31 @@ proc main():
             
         if cmd_line == "help":
             print "SageShell - A fish clone in Sage"
-            print "Built-in commands: cd, clear, help, exit"
+            print "Built-in commands: cd, clear, help, exit, export, env"
             print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
             continue
             
+        if cmd_line == "env":
+            print "PATH=" + ENV_PATH
+            continue
+            
+        if starts_with(cmd_line, "export "):
+            let parts = split_first(cmd_line, " ")
+            let kv = trim(parts[1])
+            if string.contains(kv, "="):
+                let kv_parts = split_first(kv, "=")
+                let key = trim(kv_parts[0])
+                let val = trim(kv_parts[1])
+                if key == "PATH":
+                    # Simple expansion for $PATH
+                    if string.contains(val, "$PATH"):
+                        let v_parts = split(val, "$PATH")
+                        val = v_parts[0] + ENV_PATH
+                        if len(v_parts) > 1:
+                            val = val + v_parts[1]
+                    ENV_PATH = val
+            continue
+
         if starts_with(cmd_line, "cd "):
             let parts = split_first(cmd_line, " ")
             let target = trim(parts[1])
@@ -456,7 +488,7 @@ proc main():
                     CWD = res
             continue
         
-        let exec_cmd = "cd " + CWD + " && " + cmd_line
+        let exec_cmd = "cd " + CWD + " && PATH=" + ENV_PATH + " " + cmd_line
         sys.exec(exec_cmd)
 
 main()
