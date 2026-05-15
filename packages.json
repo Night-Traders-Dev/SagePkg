@@ -16,8 +16,15 @@
     },
     {
       "name": "sagepkg",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "description": "The SageLang Package Manager",
+      "author": "Gemini CLI",
+      "architectures": ["universal"]
+    },
+    {
+      "name": "SageUtils",
+      "version": "1.0.0",
+      "description": "Common terminal utilities in SageLang",
       "author": "Gemini CLI",
       "architectures": ["universal"]
     }

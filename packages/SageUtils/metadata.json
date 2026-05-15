@@ -1,0 +1,8 @@
+{
+  "name": "SageUtils",
+  "version": "1.0.0",
+  "description": "Common terminal utilities in SageLang",
+  "main": "universal/main.sage",
+  "files": ["universal/main.sage"],
+  "binaries": ["sls", "scat", "secho", "stouch", "smkdir", "srm"]
+}

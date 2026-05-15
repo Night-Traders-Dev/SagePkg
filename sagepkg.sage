@@ -222,7 +222,7 @@ proc cmd_update():
             
     if not sagepkg_in_updates:
         # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.1.1" # Default/Current version
+        let current_ver = "1.1.2" # Default/Current version
         if installed["packages"]["sagepkg"] != nil:
             current_ver = installed["packages"]["sagepkg"]["version"]
             
@@ -372,6 +372,18 @@ proc cmd_install(pkg_name):
         let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
         _io.writefile(bin_path, wrapper)
         _sys.exec("chmod +x " + bin_path)
+        
+    # Support multiple binaries
+    let extra_bins = meta["binaries"]
+    if extra_bins != nil:
+        for i in range(len(extra_bins)):
+            let bname = extra_bins[i]
+            if bname != pkg_name:
+                let b_path = BIN_DIR + "/" + bname
+                let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
+                let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+                _io.writefile(b_path, wrapper)
+                _sys.exec("chmod +x " + b_path)
 
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
@@ -479,6 +491,18 @@ proc cmd_build(pkg_name):
     _io.writefile(bin_path, wrapper)
     _sys.exec("chmod +x " + full_binary_path)
     _sys.exec("chmod +x " + bin_path)
+
+    # Support multiple binaries
+    let extra_bins = meta["binaries"]
+    if extra_bins != nil:
+        for i in range(len(extra_bins)):
+            let bname = extra_bins[i]
+            if bname != pkg_name:
+                let b_path = BIN_DIR + "/" + bname
+                let full_binary_path = get_full_path(target_bin)
+                let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+                _io.writefile(b_path, wrapper)
+                _sys.exec("chmod +x " + b_path)
     
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
