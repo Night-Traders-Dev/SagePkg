@@ -25,7 +25,8 @@ class Editor:
             return
         self.filename = path
         let lns = split(content, chr(10))
-        if len(lns) == 0: lns = [""]
+        if len(lns) == 0:
+            lns = [""]
         self.buffer.lines = lns
         self.buffer.modified = false
         self.message = "Read " + str(len(lns)) + " lines"
@@ -90,7 +91,8 @@ class Editor:
 
     proc search():
         let query = self.prompt("Search: ")
-        if query == "": return
+        if query == "":
+            return
         self.search_query = query
         
         # Search forward from current pos
@@ -208,7 +210,8 @@ class Editor:
             self.draw()
             sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_nano_key")
             let k = io.readfile("/tmp/sage_nano_key")
-            if k == nil or len(k) == 0: continue
+            if k == nil or len(k) == 0:
+                continue
             self.process_key(ord(k[0]), k[0])
         sys.exec("stty icanon echo")
         sys.exec("clear")

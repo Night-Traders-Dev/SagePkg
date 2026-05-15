@@ -16,8 +16,10 @@ proc get_term_size():
         return [24, 80]
     let h = tonumber(parts[0])
     let w = tonumber(parts[1])
-    if h == nil: h = 24
-    if w == nil: w = 80
+    if h == nil:
+        h = 24
+    if w == nil:
+        w = 80
     return [h, w]
 
 proc draw_title_bar(cols, filename, modified):
@@ -35,7 +37,8 @@ proc draw_title_bar(cols, filename, modified):
         center = center + " (" + status + ")"
         
     let left_pad = (cols - len(title) - len(center)) / 2 | 0
-    if left_pad < 0: left_pad = 0
+    if left_pad < 0:
+        left_pad = 0
     
     let line = title
     for i in range(left_pad): line = line + " "
