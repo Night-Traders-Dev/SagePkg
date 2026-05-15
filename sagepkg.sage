@@ -4,6 +4,9 @@ import io
 import json
 import string
 
+let _sys = sys
+let _io = io
+
 # ANSI Colors
 let ESC = chr(27)
 let RESET = ESC + "[0m"
@@ -18,7 +21,7 @@ let DIM = ESC + "[2m"
 
 let REPO_URL = "https://raw.githubusercontent.com/Night-Traders-Dev/SagePkg/main"
 
-let HOME = sys.getenv("HOME")
+let HOME = _sys.getenv("HOME")
 if HOME == nil:
     HOME = "."
 
@@ -63,7 +66,7 @@ proc ui_progress(current, total, prefix):
             bar = bar + " "
     bar = bar + "]"
     let percent = (current * 100 / total) | 0
-    sys.exec("printf '\\r" + ESC + "[K" + CYAN + prefix + RESET + " " + bar + " " + str(percent) + "%%'")
+    _sys.exec("printf '\\r" + ESC + "[K" + CYAN + prefix + RESET + " " + bar + " " + str(percent) + "%%'")
 
 proc trim(s):
     if s == nil:
@@ -82,18 +85,18 @@ proc trim(s):
     return result
 
 proc ensure_dir(dir):
-    if not io.isdir(dir):
-        io.mkdir(dir)
+    if not _io.isdir(dir):
+        _io.mkdir(dir)
 
 proc download_file(url, dest):
     let cmd = "curl -sL " + url + " -o " + dest
-    let res = sys.exec(cmd)
+    let res = _sys.exec(cmd)
     if res != 0:
         ui_error("curl failed with exit code " + str(res))
     return res == 0
 
 proc read_json(path):
-    let content = io.readfile(path)
+    let content = _io.readfile(path)
     if content == nil:
         return nil
     let cjson = json.cJSON_Parse(content)
@@ -106,38 +109,38 @@ proc read_json(path):
 proc write_json(path, data):
     let cjson = json.cJSON_FromSage(data)
     let content = json.cJSON_Print(cjson)
-    io.writefile(path, content)
+    _io.writefile(path, content)
     json.cJSON_Delete(cjson)
 
 proc get_arch():
     ensure_dir(CONFIG_DIR)
-    sys.exec("uname -m > " + TEMP_FILE)
-    let arch = trim(io.readfile(TEMP_FILE))
-    sys.exec("rm -f " + TEMP_FILE)
+    _sys.exec("uname -m > " + TEMP_FILE)
+    let arch = trim(_io.readfile(TEMP_FILE))
+    _sys.exec("rm -f " + TEMP_FILE)
     return arch
 
 proc get_full_path(path):
     ensure_dir(CONFIG_DIR)
-    sys.exec("readlink -f " + path + " > " + TEMP_FILE)
-    let full_path = trim(io.readfile(TEMP_FILE))
-    sys.exec("rm -f " + TEMP_FILE)
+    _sys.exec("readlink -f " + path + " > " + TEMP_FILE)
+    let full_path = trim(_io.readfile(TEMP_FILE))
+    _sys.exec("rm -f " + TEMP_FILE)
     return full_path
 
 proc get_date():
     ensure_dir(CONFIG_DIR)
-    sys.exec("date +%Y-%m-%d > " + TEMP_FILE)
-    let d = trim(io.readfile(TEMP_FILE))
-    sys.exec("rm -f " + TEMP_FILE)
+    _sys.exec("date +%Y-%m-%d > " + TEMP_FILE)
+    let d = trim(_io.readfile(TEMP_FILE))
+    _sys.exec("rm -f " + TEMP_FILE)
     if d == "":
         return "2026-05-15" # Fallback
     return d
 
 proc cmd_init():
-    let shell = sys.getenv("SHELL")
+    let shell = _sys.getenv("SHELL")
     if shell == nil:
         shell = "/bin/sh"
     
-    let home = sys.getenv("HOME")
+    let home = _sys.getenv("HOME")
     if home == nil:
         return
         
@@ -159,16 +162,16 @@ proc cmd_init():
         path_cmd = "set -gx PATH " + full_bin_path + " $PATH"
     
     if config_file != nil:
-        if io.exists(config_file):
-            let content = io.readfile(config_file)
+        if _io.exists(config_file):
+            let content = _io.readfile(config_file)
             if not string.contains(content, full_bin_path):
                 ui_info("Automatically adding " + full_bin_path + " to " + config_file + "...")
-                io.appendfile(config_file, chr(10) + "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
+                _io.appendfile(config_file, chr(10) + "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
                 ui_success("PATH initialized. Please restart your shell.")
         else:
             if shell != "/bin/sh":
                 ui_info("Creating " + config_file + " and setting PATH...")
-                io.writefile(config_file, "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
+                _io.writefile(config_file, "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
 
 proc cmd_update():
     cmd_init()
@@ -216,7 +219,7 @@ proc cmd_update():
             
     if not sagepkg_in_updates:
         # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.1.0" # Default/Current version
+        let current_ver = "1.1.1" # Default/Current version
         if installed["packages"]["sagepkg"] != nil:
             current_ver = installed["packages"]["sagepkg"]["version"]
             
@@ -237,20 +240,20 @@ proc cmd_update():
             print "  " + BOLD + u["name"] + RESET + ": " + u["old"] + " -> " + GREEN + u["new"] + RESET
         
         print ""
-        sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \"$ans\" > " + TEMP_FILE)
-        let ans = trim(io.readfile(TEMP_FILE))
-        sys.exec("rm -f " + TEMP_FILE)
+        _sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \"$ans\" > " + TEMP_FILE)
+        let ans = trim(_io.readfile(TEMP_FILE))
+        _sys.exec("rm -f " + TEMP_FILE)
         
         if ans == "y" or ans == "Y":
-            sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+            _sys.exec("mv " + new_index_file + " " + INDEX_FILE)
             for i in range(len(updates)):
                 cmd_install(updates[i]["name"])
             ui_success("All packages updated.")
         else:
-            sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+            _sys.exec("mv " + new_index_file + " " + INDEX_FILE)
             ui_info("Update cancelled. Index updated.")
     else:
-        sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+        _sys.exec("mv " + new_index_file + " " + INDEX_FILE)
         ui_success("Index updated. All packages are up to date.")
 
 proc cmd_list():
@@ -358,14 +361,14 @@ proc cmd_install(pkg_name):
     if has_binary:
         let full_binary_path = get_full_path(pkg_dir + "/" + pkg_name)
         let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
-        io.writefile(bin_path, wrapper)
-        sys.exec("chmod +x " + full_binary_path)
-        sys.exec("chmod +x " + bin_path)
+        _io.writefile(bin_path, wrapper)
+        _sys.exec("chmod +x " + full_binary_path)
+        _sys.exec("chmod +x " + bin_path)
     elif main_file != nil:
         let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
         let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
-        io.writefile(bin_path, wrapper)
-        sys.exec("chmod +x " + bin_path)
+        _io.writefile(bin_path, wrapper)
+        _sys.exec("chmod +x " + bin_path)
 
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
@@ -381,7 +384,7 @@ proc cmd_install(pkg_name):
     ui_success(BOLD + pkg_name + RESET + " installed successfully.")
     
     let full_bin_path = get_full_path(BIN_DIR)
-    let path_env = sys.getenv("PATH")
+    let path_env = _sys.getenv("PATH")
     if string.find(path_env, full_bin_path) == -1:
         print ""
         ui_hint("To run '" + BOLD + pkg_name + RESET + "' by name, add this to your PATH:")
@@ -462,7 +465,7 @@ proc cmd_build(pkg_name):
     let target_bin = pkg_dir + "/" + pkg_name
     ui_info("Compiling with Sage...")
     let compile_cmd = "sage --compile " + pkg_dir + "/" + main_file + " -o " + target_bin
-    let res = sys.exec(compile_cmd)
+    let res = _sys.exec(compile_cmd)
     if res != 0:
         ui_error("Compilation failed with exit code " + str(res))
         return
@@ -470,9 +473,9 @@ proc cmd_build(pkg_name):
     let bin_path = BIN_DIR + "/" + pkg_name
     let full_binary_path = get_full_path(target_bin)
     let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
-    io.writefile(bin_path, wrapper)
-    sys.exec("chmod +x " + full_binary_path)
-    sys.exec("chmod +x " + bin_path)
+    _io.writefile(bin_path, wrapper)
+    _sys.exec("chmod +x " + full_binary_path)
+    _sys.exec("chmod +x " + bin_path)
     
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
@@ -496,9 +499,9 @@ proc cmd_remove(pkg_name):
 
     ui_step("Removing " + BOLD + pkg_name + RESET + "...")
     let bin_path = BIN_DIR + "/" + pkg_name
-    sys.exec("rm -f " + bin_path)
+    _sys.exec("rm -f " + bin_path)
     let pkg_dir = PKGS_DIR + "/" + pkg_name
-    sys.exec("rm -rf " + pkg_dir)
+    _sys.exec("rm -rf " + pkg_dir)
     
     dict_delete(installed["packages"], pkg_name)
     write_json(INSTALLED_FILE, installed)
@@ -519,7 +522,7 @@ proc cmd_installed():
         print GREEN + BOLD + name + RESET + " (v" + info["version"] + ")"
 
 proc main():
-    let args = sys.args()
+    let args = _sys.args()
     let cmd_idx = 2
     if len(args) < 3:
         print GREEN + BOLD + "   _____                      _____  _         " + RESET
