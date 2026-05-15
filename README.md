@@ -52,6 +52,20 @@ SageFetch
 ## Available Packages
 - **SageFetch**: A high-performance Neofetch clone with robust CPU and shell detection.
 - **SageShell**: A modern fish-like shell featuring syntax highlighting, autosuggestions, tab completion, and a real-time status bar.
+- **SageNano**: A nano-inspired terminal text editor with syntax highlighting, search, and page navigation.
+- **SageUtils**: Common terminal utilities implemented in SageLang.
+
+## Development
+
+This repository includes [SageLang](https://github.com/Night-Traders-Dev/SageLang) as a submodule to facilitate cross-development and debugging.
+
+```bash
+# Clone with submodules
+git clone --recursive https://github.com/Night-Traders-Dev/SagePkg
+
+# Or update existing clone
+git submodule update --init --recursive
+```
 
 ---
 © 2026 Night Traders Dev
