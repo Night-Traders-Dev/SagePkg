@@ -237,7 +237,7 @@ proc cmd_update():
             print "  " + BOLD + u["name"] + RESET + ": " + u["old"] + " -> " + GREEN + u["new"] + RESET
         
         print ""
-        sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \$ans > " + TEMP_FILE)
+        sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo $ans > " + TEMP_FILE)
         let ans = trim(io.readfile(TEMP_FILE))
         sys.exec("rm -f " + TEMP_FILE)
         
