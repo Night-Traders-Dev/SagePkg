@@ -7,6 +7,11 @@ import string
 let _sys = sys
 let _io = io
 
+# ============================================================================
+# Version — single source of truth for self-update detection
+# ============================================================================
+let SAGEPKG_VERSION = "1.5.1"
+
 # ANSI Colors
 let ESC = chr(27)
 let RESET = ESC + "[0m"
@@ -30,7 +35,17 @@ let PKGS_DIR = CONFIG_DIR + "/pkgs"
 let BIN_DIR = CONFIG_DIR + "/bin"
 let INDEX_FILE = CONFIG_DIR + "/packages.json"
 let INSTALLED_FILE = CONFIG_DIR + "/installed.json"
-let TEMP_FILE = CONFIG_DIR + "/.tmp"
+
+# ============================================================================
+# Unique per-process temp file to avoid races between concurrent sagepkg runs
+# ============================================================================
+proc _make_temp_file():
+    _sys.exec("printf '%d' $PPID > /tmp/_sagepkg_pid_tmp")
+    let pid = trim(_io.readfile("/tmp/_sagepkg_pid_tmp"))
+    _sys.exec("rm -f /tmp/_sagepkg_pid_tmp")
+    if pid == "" or pid == nil:
+        pid = "0"
+    return CONFIG_DIR + "/.tmp_" + pid
 
 # UI Helpers
 proc ui_info(msg):
@@ -88,8 +103,33 @@ proc ensure_dir(dir):
     if not _io.isdir(dir):
         _io.mkdir(dir)
 
+# ============================================================================
+# Path safety validation
+# Rejects paths with ".." traversal or shell metacharacters.
+# Allowed: a-z A-Z 0-9 - _ / .
+# ============================================================================
+proc is_safe_path(p):
+    if p == nil or len(p) == 0:
+        return false
+    if string.contains(p, ".."):
+        return false
+    for i in range(len(p)):
+        let c = p[i]
+        if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or
+                (c >= "0" and c <= "9") or c == "-" or c == "_" or
+                c == "/" or c == "."):
+            return false
+    return true
+
+# ============================================================================
+# Shell-safe file download. URL components are validated before use.
+# ============================================================================
 proc download_file(url, dest):
-    let cmd = "curl -sL " + url + " -o " + dest
+    # Basic sanity — dest must be a safe path we constructed
+    if not is_safe_path(dest):
+        ui_error("Refusing to download to unsafe path: " + dest)
+        return false
+    let cmd = "curl -sL '" + url + "' -o '" + dest + "'"
     let res = _sys.exec(cmd)
     if res != 0:
         ui_error("curl failed with exit code " + str(res))
@@ -114,43 +154,46 @@ proc write_json(path, data):
 
 proc get_arch():
     ensure_dir(CONFIG_DIR)
-    _sys.exec("uname -m > " + TEMP_FILE)
-    let arch = trim(_io.readfile(TEMP_FILE))
-    _sys.exec("rm -f " + TEMP_FILE)
+    let tmp = _make_temp_file()
+    _sys.exec("uname -m > '" + tmp + "'")
+    let arch = trim(_io.readfile(tmp))
+    _sys.exec("rm -f '" + tmp + "'")
     return arch
 
 proc get_full_path(path):
     ensure_dir(CONFIG_DIR)
-    _sys.exec("readlink -f " + path + " > " + TEMP_FILE)
-    let full_path = trim(_io.readfile(TEMP_FILE))
-    _sys.exec("rm -f " + TEMP_FILE)
+    let tmp = _make_temp_file()
+    _sys.exec("readlink -f '" + path + "' > '" + tmp + "'")
+    let full_path = trim(_io.readfile(tmp))
+    _sys.exec("rm -f '" + tmp + "'")
     return full_path
 
 proc get_date():
     ensure_dir(CONFIG_DIR)
-    _sys.exec("date +%Y-%m-%d > " + TEMP_FILE)
-    let d = trim(_io.readfile(TEMP_FILE))
-    _sys.exec("rm -f " + TEMP_FILE)
+    let tmp = _make_temp_file()
+    _sys.exec("date +%Y-%m-%d > '" + tmp + "'")
+    let d = trim(_io.readfile(tmp))
+    _sys.exec("rm -f '" + tmp + "'")
     if d == "":
-        return "2026-05-15" # Fallback
+        return "2026-05-15"
     return d
 
 proc cmd_init():
     let shell = _sys.getenv("SHELL")
     if shell == nil:
         shell = "/bin/sh"
-    
+
     let home = _sys.getenv("HOME")
     if home == nil:
         return
-        
+
     ensure_dir(CONFIG_DIR)
     ensure_dir(BIN_DIR)
     let full_bin_path = get_full_path(BIN_DIR)
-    
+
     let config_file = nil
     let path_cmd = nil
-    
+
     if string.contains(shell, "bash") or shell == "/bin/sh":
         config_file = home + "/.bashrc"
         path_cmd = "export PATH=" + chr(34) + full_bin_path + ":$PATH" + chr(34)
@@ -163,7 +206,7 @@ proc cmd_init():
     elif string.contains(shell, "SageShell"):
         config_file = home + "/.sageshellrc"
         path_cmd = "export PATH=" + full_bin_path + ":$PATH"
-    
+
     if config_file != nil:
         if _io.exists(config_file):
             let content = _io.readfile(config_file)
@@ -182,7 +225,7 @@ proc cmd_update():
     ensure_dir(CONFIG_DIR)
     let url = REPO_URL + "/packages.json"
     let new_index_file = CONFIG_DIR + "/packages_new.json"
-    
+
     if not download_file(url, new_index_file):
         ui_error("Failed to download index from " + url)
         return
@@ -195,16 +238,15 @@ proc cmd_update():
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
         installed = {"packages": {}}
-    
+
     let updates = []
     let new_pkgs = new_index["packages"]
-    
-    # Check regular installed packages
+
+    # Check all installed packages for available updates
     let installed_names = dict_keys(installed["packages"])
     for i in range(len(installed_names)):
         let name = installed_names[i]
         let current_ver = installed["packages"][name]["version"]
-        
         for j in range(len(new_pkgs)):
             if new_pkgs[j]["name"] == name:
                 if new_pkgs[j]["version"] != current_ver:
@@ -213,50 +255,42 @@ proc cmd_update():
                         "old": current_ver,
                         "new": new_pkgs[j]["version"]
                     })
-    
-        # Special check for sagepkg self-update
-    let sagepkg_in_updates = false
-    for i in range(len(updates)):
-        if updates[i]["name"] == "sagepkg":
-            sagepkg_in_updates = true
-            
-    if not sagepkg_in_updates:
-        # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.1.2" # Default/Current version
-        if installed["packages"]["sagepkg"] != nil:
-            current_ver = installed["packages"]["sagepkg"]["version"]
-            
+
+    # Bootstrap case: sagepkg is not yet recorded in installed.json (first-time install).
+    # Use the compiled-in SAGEPKG_VERSION constant — no hardcoded fallback string.
+    if installed["packages"]["sagepkg"] == nil:
         for j in range(len(new_pkgs)):
             if new_pkgs[j]["name"] == "sagepkg":
-                if new_pkgs[j]["version"] != current_ver:
+                if new_pkgs[j]["version"] != SAGEPKG_VERSION:
                     push(updates, {
                         "name": "sagepkg",
-                        "old": current_ver,
+                        "old": SAGEPKG_VERSION,
                         "new": new_pkgs[j]["version"]
                     })
-    
+
     if len(updates) > 0:
         print ""
         ui_info("The following packages can be updated:")
         for i in range(len(updates)):
             let u = updates[i]
             print "  " + BOLD + u["name"] + RESET + ": " + u["old"] + " -> " + GREEN + u["new"] + RESET
-        
+
         print ""
-        _sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \"$ans\" > " + TEMP_FILE)
-        let ans = trim(_io.readfile(TEMP_FILE))
-        _sys.exec("rm -f " + TEMP_FILE)
-        
+        let tmp = _make_temp_file()
+        _sys.exec("printf '" + CYAN + BOLD + "?" + RESET + " Update these packages? (y/n): ' && read ans && echo \"$ans\" > '" + tmp + "'")
+        let ans = trim(_io.readfile(tmp))
+        _sys.exec("rm -f '" + tmp + "'")
+
         if ans == "y" or ans == "Y":
-            _sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+            _sys.exec("mv '" + new_index_file + "' '" + INDEX_FILE + "'")
             for i in range(len(updates)):
                 cmd_install(updates[i]["name"])
             ui_success("All packages updated.")
         else:
-            _sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+            _sys.exec("mv '" + new_index_file + "' '" + INDEX_FILE + "'")
             ui_info("Update cancelled. Index updated.")
     else:
-        _sys.exec("mv " + new_index_file + " " + INDEX_FILE)
+        _sys.exec("mv '" + new_index_file + "' '" + INDEX_FILE + "'")
         ui_success("Index updated. All packages are up to date.")
 
 proc cmd_list():
@@ -264,7 +298,7 @@ proc cmd_list():
     if data == nil:
         ui_error("No package index found. Run 'update' first.")
         return
-    
+
     print BOLD + "Available packages:" + RESET
     print DIM + "-------------------" + RESET
     let pkgs = data["packages"]
@@ -286,59 +320,71 @@ proc cmd_install(pkg_name):
     if index_data == nil:
         ui_error("No package index found. Run 'update' first.")
         return
-    
+
     let pkg_info = nil
     let pkgs = index_data["packages"]
     for i in range(len(pkgs)):
         if pkgs[i]["name"] == pkg_name:
             pkg_info = pkgs[i]
-    
+
     if pkg_info == nil:
         ui_error("Package '" + pkg_name + "' not found in index.")
         return
-    
+
     let arch = get_arch()
     let arch_supported = false
     let arches = pkg_info["architectures"]
     for i in range(len(arches)):
         if arches[i] == arch or arches[i] == "universal":
             arch_supported = true
-    
+
     if not arch_supported:
         ui_warn("Binary not available for architecture: " + arch + ". Falling back to source build.")
         cmd_build(pkg_name)
         return
-    
+
     ui_step("Installing " + BOLD + pkg_name + RESET + " for " + arch + "...")
     ensure_dir(CONFIG_DIR)
     ensure_dir(PKGS_DIR)
     ensure_dir(BIN_DIR)
     let pkg_dir = PKGS_DIR + "/" + pkg_name
     ensure_dir(pkg_dir)
-    
+
     ui_info("Downloading metadata...")
     let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json"
     let meta_file = pkg_dir + "/metadata.json"
     if not download_file(meta_url, meta_file):
         ui_error("Failed to download metadata.")
         return
-    
+
     let meta = read_json(meta_file)
     if meta == nil:
         ui_error("Failed to parse metadata.")
         return
-    
+
+    # Validate main entry from untrusted downloaded metadata
+    let main_file = meta["main"]
+    if not is_safe_path(main_file):
+        ui_error("Metadata contains unsafe 'main' path: " + str(main_file))
+        return
+
     let files = meta["files"]
     for i in range(len(files)):
         let fname = files[i]
+
+        # Validate every file path from untrusted metadata
+        if not is_safe_path(fname):
+            ui_error("Metadata contains unsafe file path: " + str(fname))
+            return
+
         ui_progress(i, len(files), "Downloading files")
-        
+
         let f_url = nil
         if string.contains(fname, "universal/"):
             f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
         else:
             f_url = REPO_URL + "/packages/" + pkg_name + "/" + arch + "/" + fname
-        
+
         let f_dest = pkg_dir + "/" + fname
         if string.contains(fname, "/"):
             let parts = split(fname, "/")
@@ -349,55 +395,55 @@ proc cmd_install(pkg_name):
             print ""
             ui_error("Failed to download file: " + fname)
             return
-    
+
     ui_progress(len(files), len(files), "Downloading files")
     print ""
 
     ui_info("Creating binary wrappers...")
-    let main_file = meta["main"]
     let bin_path = BIN_DIR + "/" + pkg_name
     let has_binary = false
     for i in range(len(files)):
         if files[i] == pkg_name:
             has_binary = true
-    
+
     if has_binary:
         let full_binary_path = get_full_path(pkg_dir + "/" + pkg_name)
-        let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+        let wrapper = "#!/bin/sh" + chr(10) + "exec '" + full_binary_path + "' \"$@\"" + chr(10)
         _io.writefile(bin_path, wrapper)
-        _sys.exec("chmod +x " + full_binary_path)
-        _sys.exec("chmod +x " + bin_path)
+        _sys.exec("chmod +x '" + full_binary_path + "'")
+        _sys.exec("chmod +x '" + bin_path + "'")
     elif main_file != nil:
         let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
-        let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+        let wrapper = "#!/bin/sh" + chr(10) + "exec sage '" + full_pkg_path + "' \"$@\"" + chr(10)
         _io.writefile(bin_path, wrapper)
-        _sys.exec("chmod +x " + bin_path)
-        
-    # Support multiple binaries
+        _sys.exec("chmod +x '" + bin_path + "'")
+
+    # Extra named binaries: inject the binary name as first argument so main.sage
+    # can route by command rather than by script basename (which is always main.sage).
     let extra_bins = meta["binaries"]
     if extra_bins != nil:
+        let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
         for i in range(len(extra_bins)):
             let bname = extra_bins[i]
             if bname != pkg_name:
                 let b_path = BIN_DIR + "/" + bname
-                let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
-                let wrapper = "#!/bin/sh" + chr(10) + "exec sage " + full_pkg_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+                let wrapper = "#!/bin/sh" + chr(10) + "exec sage '" + full_pkg_path + "' " + bname + " \"$@\"" + chr(10)
                 _io.writefile(b_path, wrapper)
-                _sys.exec("chmod +x " + b_path)
+                _sys.exec("chmod +x '" + b_path + "'")
 
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
         installed = {"packages": {}}
-    
+
     installed["packages"][pkg_name] = {
         "version": meta["version"],
         "install_date": get_date(),
         "files": files
     }
     write_json(INSTALLED_FILE, installed)
-    
+
     ui_success(BOLD + pkg_name + RESET + " installed successfully.")
-    
+
     let full_bin_path = get_full_path(BIN_DIR)
     let path_env = _sys.getenv("PATH")
     if string.find(path_env, full_bin_path) == -1:
@@ -419,13 +465,13 @@ proc cmd_build(pkg_name):
     if index_data == nil:
         ui_error("No package index found. Run 'update' first.")
         return
-    
+
     let pkg_info = nil
     let pkgs = index_data["packages"]
     for i in range(len(pkgs)):
         if pkgs[i]["name"] == pkg_name:
             pkg_info = pkgs[i]
-    
+
     if pkg_info == nil:
         ui_error("Package '" + pkg_name + "' not found in index.")
         return
@@ -436,50 +482,62 @@ proc cmd_build(pkg_name):
     ensure_dir(BIN_DIR)
     let pkg_dir = PKGS_DIR + "/" + pkg_name
     ensure_dir(pkg_dir)
-    
+
     ui_info("Downloading metadata...")
     let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json"
     let meta_file = pkg_dir + "/metadata.json"
     if not download_file(meta_url, meta_file):
         ui_error("Failed to download metadata.")
         return
-    
+
     let meta = read_json(meta_file)
     if meta == nil:
         ui_error("Failed to parse metadata.")
+        return
+
+    # Validate main entry from untrusted downloaded metadata
+    let main_file = meta["main"]
+    if not is_safe_path(main_file):
+        ui_error("Metadata contains unsafe 'main' path: " + str(main_file))
         return
 
     let files = meta["files"]
     let source_files = []
     for i in range(len(files)):
         let fname = files[i]
+
+        # Validate every file path from untrusted metadata
+        if not is_safe_path(fname):
+            ui_error("Metadata contains unsafe file path: " + str(fname))
+            return
+
         if string.contains(fname, "universal/"):
             ui_progress(i, len(files), "Downloading source")
             push(source_files, fname)
             let f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
             let f_dest = pkg_dir + "/" + fname
-            
+
             if string.contains(fname, "/"):
                 let parts = split(fname, "/")
                 if len(parts) > 1:
                     ensure_dir(pkg_dir + "/" + parts[0])
-                
+
             if not download_file(f_url, f_dest):
                 print ""
                 ui_error("Failed to download source file: " + fname)
                 return
-    
+
     ui_progress(len(files), len(files), "Downloading source")
     print ""
 
-    let main_file = meta["main"]
     if main_file == nil:
         ui_error("No main script defined in metadata.")
         return
 
     let target_bin = pkg_dir + "/" + pkg_name
     ui_info("Compiling with Sage...")
-    let compile_cmd = "sage --compile " + pkg_dir + "/" + main_file + " -o " + target_bin
+    let full_main = get_full_path(pkg_dir + "/" + main_file)
+    let compile_cmd = "sage --compile '" + full_main + "' -o '" + target_bin + "'"
     let res = _sys.exec(compile_cmd)
     if res != 0:
         ui_error("Compilation failed with exit code " + str(res))
@@ -487,27 +545,27 @@ proc cmd_build(pkg_name):
 
     let bin_path = BIN_DIR + "/" + pkg_name
     let full_binary_path = get_full_path(target_bin)
-    let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+    let wrapper = "#!/bin/sh" + chr(10) + "exec '" + full_binary_path + "' \"$@\"" + chr(10)
     _io.writefile(bin_path, wrapper)
-    _sys.exec("chmod +x " + full_binary_path)
-    _sys.exec("chmod +x " + bin_path)
+    _sys.exec("chmod +x '" + full_binary_path + "'")
+    _sys.exec("chmod +x '" + bin_path + "'")
 
-    # Support multiple binaries
+    # Extra named binaries: inject command name for routing (same as cmd_install)
     let extra_bins = meta["binaries"]
     if extra_bins != nil:
+        let full_pkg_path = get_full_path(pkg_dir + "/" + main_file)
         for i in range(len(extra_bins)):
             let bname = extra_bins[i]
             if bname != pkg_name:
                 let b_path = BIN_DIR + "/" + bname
-                let full_binary_path = get_full_path(target_bin)
-                let wrapper = "#!/bin/sh" + chr(10) + "exec " + full_binary_path + " " + chr(34) + "$@" + chr(34) + chr(10)
+                let wrapper = "#!/bin/sh" + chr(10) + "exec sage '" + full_pkg_path + "' " + bname + " \"$@\"" + chr(10)
                 _io.writefile(b_path, wrapper)
-                _sys.exec("chmod +x " + b_path)
-    
+                _sys.exec("chmod +x '" + b_path + "'")
+
     let installed = read_json(INSTALLED_FILE)
     if installed == nil:
         installed = {"packages": {}}
-    
+
     installed["packages"][pkg_name] = {
         "version": meta["version"],
         "install_date": get_date(),
@@ -515,7 +573,7 @@ proc cmd_build(pkg_name):
         "built_from_source": true
     }
     write_json(INSTALLED_FILE, installed)
-    
+
     ui_success(BOLD + pkg_name + RESET + " built and installed successfully.")
 
 proc cmd_remove(pkg_name):
@@ -525,11 +583,28 @@ proc cmd_remove(pkg_name):
         return
 
     ui_step("Removing " + BOLD + pkg_name + RESET + "...")
-    let bin_path = BIN_DIR + "/" + pkg_name
-    _sys.exec("rm -f " + bin_path)
+
+    # Resolve real paths and verify they sit inside the expected directories
+    # before running rm, guarding against an empty HOME / CONFIG_DIR expansion.
+    let full_pkgs_dir = get_full_path(PKGS_DIR)
+    let full_bins_dir = get_full_path(BIN_DIR)
+
     let pkg_dir = PKGS_DIR + "/" + pkg_name
-    _sys.exec("rm -rf " + pkg_dir)
-    
+    let bin_path = BIN_DIR + "/" + pkg_name
+    let full_pkg = get_full_path(pkg_dir)
+    let full_bin = get_full_path(bin_path)
+
+    if len(full_pkg) == 0 or len(full_bin) == 0 or len(full_pkgs_dir) == 0:
+        ui_error("Could not resolve package paths. Aborting removal.")
+        return
+
+    if not string.contains(full_pkg, full_pkgs_dir):
+        ui_error("Resolved package path (" + full_pkg + ") is outside pkgs dir. Aborting.")
+        return
+
+    _sys.exec("rm -f '" + full_bin + "'")
+    _sys.exec("rm -rf '" + full_pkg + "'")
+
     dict_delete(installed["packages"], pkg_name)
     write_json(INSTALLED_FILE, installed)
     ui_success(BOLD + pkg_name + RESET + " removed.")
@@ -539,7 +614,7 @@ proc cmd_installed():
     if installed == nil or len(installed["packages"]) == 0:
         ui_info("No packages installed.")
         return
-    
+
     print BOLD + "Installed packages:" + RESET
     print DIM + "-------------------" + RESET
     let names = dict_keys(installed["packages"])
@@ -561,7 +636,7 @@ proc main():
         print GREEN + BOLD + "                __/ |                          " + RESET
         print GREEN + BOLD + "               |___/                           " + RESET
         print ""
-        print BOLD + CYAN + " SagePkg" + RESET + " - The SageLang Package Manager"
+        print BOLD + CYAN + " SagePkg" + RESET + " v" + SAGEPKG_VERSION + " - The SageLang Package Manager"
         print ""
         print BOLD + " Usage:" + RESET + " sagepkg <command> [args]"
         print ""

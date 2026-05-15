@@ -160,13 +160,62 @@ proc get_cpu_info():
         if len(line) > 11:
             if string.substr(line, 0, 11) == "Model\t\t: ":
                 return string.substr(line, 11, len(line) - 11)
-        # ARM specific fields in some /proc/cpuinfo
+        # ARM-specific: decode CPU part number to a human-readable name
         if string.contains(line, "CPU part"):
             let parts = split(line, ":")
             if len(parts) > 1:
-                return "ARM Part " + trim(parts[1])
-                
+                let part = trim(parts[1])
+                return arm_part_name(part)
+
     return "Generic CPU"
+
+# Translate ARM CPU part numbers (from /proc/cpuinfo) to core names.
+# Part numbers are defined in the ARM Architecture Reference Manuals.
+proc arm_part_name(part):
+    if part == "0xd03": return "ARM Cortex-A53"
+    if part == "0xd04": return "ARM Cortex-A35"
+    if part == "0xd05": return "ARM Cortex-A55"
+    if part == "0xd06": return "ARM Cortex-A65"
+    if part == "0xd07": return "ARM Cortex-A57"
+    if part == "0xd08": return "ARM Cortex-A72"
+    if part == "0xd09": return "ARM Cortex-A73"
+    if part == "0xd0a": return "ARM Cortex-A75"
+    if part == "0xd0b": return "ARM Cortex-A76"
+    if part == "0xd0c": return "ARM Neoverse-N1"
+    if part == "0xd0d": return "ARM Cortex-A77"
+    if part == "0xd0e": return "ARM Cortex-A76AE"
+    if part == "0xd40": return "ARM Neoverse-V1"
+    if part == "0xd41": return "ARM Cortex-A78"
+    if part == "0xd42": return "ARM Cortex-A78AE"
+    if part == "0xd44": return "ARM Cortex-X1"
+    if part == "0xd46": return "ARM Cortex-A510"
+    if part == "0xd47": return "ARM Cortex-A710"
+    if part == "0xd48": return "ARM Cortex-X2"
+    if part == "0xd4b": return "ARM Cortex-A78C"
+    if part == "0xd4c": return "ARM Neoverse-V2"
+    if part == "0xd4d": return "ARM Cortex-A715"
+    if part == "0xd4e": return "ARM Cortex-X3"
+    if part == "0xd80": return "ARM Cortex-A520"
+    if part == "0xd81": return "ARM Cortex-A720"
+    if part == "0xd84": return "ARM Cortex-X4"
+    # Qualcomm Krait / Kryo
+    if part == "0x04d": return "Qualcomm Krait 300"
+    if part == "0x06f": return "Qualcomm Krait 400"
+    if part == "0x201": return "Qualcomm Kryo 260 Silver"
+    if part == "0x205": return "Qualcomm Kryo 260 Gold"
+    if part == "0x211": return "Qualcomm Kryo 360 Silver"
+    if part == "0x215": return "Qualcomm Kryo 360 Gold"
+    if part == "0x803": return "Qualcomm Kryo 385 Silver"
+    if part == "0x804": return "Qualcomm Kryo 385 Gold"
+    if part == "0x805": return "Qualcomm Kryo 485 Silver"
+    if part == "0x806": return "Qualcomm Kryo 485 Gold"
+    # Apple
+    if part == "0x022": return "Apple Icestorm"
+    if part == "0x023": return "Apple Firestorm"
+    if part == "0x024": return "Apple Blizzard"
+    if part == "0x025": return "Apple Avalanche"
+    # Unknown
+    return "ARM Part " + part
 
 proc get_gpu_info():
     # 1. Try lspci (common for x86)

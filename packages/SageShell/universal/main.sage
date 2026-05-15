@@ -15,7 +15,14 @@ let YELLOW = ESC + "[33m"
 
 let HISTORY = []
 let HISTORY_INDEX = 0
-let IS_TTY = (sys.exec("[ -t 0 ]") == 0)
+
+# IS_TTY is evaluated lazily via check_tty() rather than at module-load time
+# so that piped / non-interactive invocations (CI, scripts) are detected correctly
+# even when the execution context changes between load and first read.
+proc check_tty():
+    return sys.exec("[ -t 0 ]") == 0
+
+let IS_TTY = check_tty()
 
 proc load_history():
     let home = sys.getenv("HOME")
@@ -84,6 +91,8 @@ proc split_first(s, sep):
 
 let CWD = get_cwd()
 let USER = get_user()
+# NOTE: CWD is a mutable global updated by process_command("cd ...").
+# All callers of process_command must be aware that it may change CWD as a side-effect.
 
 let ENV_PATH = sys.getenv("PATH")
 let home = sys.getenv("HOME")
@@ -468,7 +477,7 @@ proc process_command(cmd_line):
         return true
         
     if cmd_line == "version":
-        print BOLD + "SageShell" + RESET + " v1.4.0"
+        print BOLD + "SageShell" + RESET + " v1.5.1"
         print "Architecture: universal"
         return true
         

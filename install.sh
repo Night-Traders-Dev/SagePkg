@@ -11,9 +11,9 @@ echo "Installing SagePkg..."
 mkdir -p "$BIN_DIR"
 mkdir -p "$PKGS_DIR"
 
-# Copy sagepkg.sage and dependencies to bin
-cp sagepkg.sage "$BIN_DIR/sagepkg"
-cp json.sage "$BIN_DIR/json.sage"
+# Canonical sagepkg script lives under packages/ — no root-level duplicate.
+cp packages/sagepkg/universal/sagepkg.sage "$BIN_DIR/sagepkg"
+cp lib/json.sage "$BIN_DIR/json.sage"
 chmod +x "$BIN_DIR/sagepkg"
 
 echo "SagePkg script installed to $BIN_DIR/sagepkg"
@@ -41,7 +41,7 @@ case "$SHELL_NAME" in
 esac
 
 if [ -n "$CONFIG_FILE" ]; then
-    if ! grep -q "$BIN_DIR" "$CONFIG_FILE"; then
+    if ! grep -q "$BIN_DIR" "$CONFIG_FILE" 2>/dev/null; then
         echo "Adding $BIN_DIR to PATH in $CONFIG_FILE..."
         if [ "$SHELL_NAME" == "fish" ]; then
             echo -e "\n# SagePkg PATH\nset -gx PATH \"$BIN_DIR\" \$PATH" >> "$CONFIG_FILE"

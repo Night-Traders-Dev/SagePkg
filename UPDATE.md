@@ -1,5 +1,27 @@
 # SagePkg Updates
 
+## [1.5.1] - 2026-05-15
+### Security
+- **SagePkg**: Added `is_safe_path()` validation for all file paths received from downloaded metadata, preventing path-traversal and shell-injection via malicious packages.
+- **SagePkg**: All shell-constructed paths now wrapped in single quotes in `_sys.exec()` calls.
+- **SagePkg**: `cmd_remove` now resolves and verifies full paths via `readlink -f` before running `rm -rf`, guarding against empty-HOME expansion.
+
+### Fixed
+- **SagePkg**: Replaced hardcoded `"1.1.2"` fallback version in `cmd_update` with `SAGEPKG_VERSION` constant — no more stale self-update detection.
+- **SagePkg**: Fixed duplicate update entry for `sagepkg` in `cmd_update`; bootstrap-case check now only runs when `sagepkg` is absent from `installed.json`.
+- **SagePkg**: Replaced shared static `TEMP_FILE` with a per-process PID-scoped path to eliminate race conditions between concurrent invocations.
+- **SagePkg**: Extra-binary wrappers (e.g. for `SageUtils`) now inject the binary name as `args[2]` so `main.sage` can route by command without fragile basename-of-script-path detection.
+- **SageUtils**: Rewrote `main()` routing to consume the injected command name at `args[2]`; fixes broken dispatch when called via sagepkg-generated wrappers.
+- **SageFetch**: Added full ARM CPU part-number lookup table (Cortex-A35 through Cortex-X4, Qualcomm Kryo, Apple Silicon) replacing the raw `"ARM Part 0xNNN"` fallback.
+- **SageShell**: Changed `IS_TTY` to be set via an explicit `check_tty()` call rather than an implicit module-load side-effect, making the detection intent clear.
+- **Validation**: `scripts/validate.sage` now physically checks that every file declared in `metadata.json` exists in the repository using `test -f`.
+
+### Changed
+- **SagePkg**: `sagepkg.sage` root duplicate removed; `install.sh` now installs directly from `packages/sagepkg/universal/sagepkg.sage`.
+- **SagePkg**: `lib/json.sage` introduced as the single canonical source for the JSON library. Root `json.sage` and `packages/sagepkg/universal/json.sage` are synced copies. Run `make sync-deps` after editing `lib/json.sage`.
+- **CI**: Added sync-verification step to ensure bundled `json.sage` copies match `lib/json.sage`.
+- **packages.json**: Bumped `sagepkg` version to `1.5.1` (was stale at `1.1.2`). Added architecture list for `SageUtils`.
+
 ## [1.5.0] - 2026-05-15
 ### Changed
 - **SageFetch**: Switched to script-only mode (v1.1.0) to resolve `SIGSEGV` issues with outdated binaries.
