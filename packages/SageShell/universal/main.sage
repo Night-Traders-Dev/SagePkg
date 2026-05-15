@@ -417,10 +417,80 @@ proc sage_readline():
     sys.exec("stty icanon echo")
     return line
 
+proc process_command(cmd_line):
+    if len(cmd_line) == 0:
+        return true
+        
+    if cmd_line == "exit" or cmd_line == "quit":
+        return false
+    
+    if cmd_line == "clear":
+        sys.exec("clear")
+        return true
+        
+    if cmd_line == "help":
+        print "SageShell - A fish clone in Sage"
+        print "Built-in commands: cd, clear, help, exit, export, env"
+        print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
+        return true
+        
+    if cmd_line == "env":
+        print "PATH=" + ENV_PATH
+        return true
+        
+    if starts_with(cmd_line, "export "):
+        let parts = split_first(cmd_line, " ")
+        let kv = trim(parts[1])
+        if string.contains(kv, "="):
+            let kv_parts = split_first(kv, "=")
+            let key = trim(kv_parts[0])
+            let val = trim(kv_parts[1])
+            if key == "PATH":
+                # Simple expansion for $PATH
+                if string.contains(val, "$PATH"):
+                    let v_parts = split(val, "$PATH")
+                    val = v_parts[0] + ENV_PATH
+                    if len(v_parts) > 1:
+                        val = val + v_parts[1]
+                ENV_PATH = val
+        return true
+
+    if starts_with(cmd_line, "cd "):
+        let parts = split_first(cmd_line, " ")
+        let target = trim(parts[1])
+        if len(target) == 0:
+            let home = sys.getenv("HOME")
+            if home != nil:
+                target = home
+        
+        let check_cmd = "cd " + CWD + " && cd '" + target + "' 2>/dev/null && pwd > /tmp/sage_cwd_new || echo 'ERROR' > /tmp/sage_cwd_new"
+        sys.exec(check_cmd)
+        let res = trim(io.readfile("/tmp/sage_cwd_new"))
+        if res == "ERROR":
+            print "cd: no such file or directory: " + target
+        else:
+            if len(res) > 0:
+                CWD = res
+        return true
+    
+    let exec_cmd = "cd " + CWD + " && PATH=" + ENV_PATH + " " + cmd_line
+    sys.exec(exec_cmd)
+    return true
+
 proc main():
     print "Welcome to SageShell!"
     print "Type 'help' for commands, 'exit' to quit."
     
+    # Load .sageshellrc
+    let home = sys.getenv("HOME")
+    if home != nil:
+        let rc = home + "/.sageshellrc"
+        if io.exists(rc):
+            let content = io.readfile(rc)
+            let lines = split(content, chr(10))
+            for i in range(len(lines)):
+                process_command(trim(lines[i]))
+
     while true:
         print_prompt()
         HISTORY_INDEX = len(HISTORY)
@@ -436,59 +506,7 @@ proc main():
         if len(HISTORY) == 0 or HISTORY[len(HISTORY)-1] != cmd_line:
             push(HISTORY, cmd_line)
             
-        if cmd_line == "exit" or cmd_line == "quit":
+        if not process_command(cmd_line):
             break
-        
-        if cmd_line == "clear":
-            sys.exec("clear")
-            continue
-            
-        if cmd_line == "help":
-            print "SageShell - A fish clone in Sage"
-            print "Built-in commands: cd, clear, help, exit, export, env"
-            print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search, Real-time Status Bar"
-            continue
-            
-        if cmd_line == "env":
-            print "PATH=" + ENV_PATH
-            continue
-            
-        if starts_with(cmd_line, "export "):
-            let parts = split_first(cmd_line, " ")
-            let kv = trim(parts[1])
-            if string.contains(kv, "="):
-                let kv_parts = split_first(kv, "=")
-                let key = trim(kv_parts[0])
-                let val = trim(kv_parts[1])
-                if key == "PATH":
-                    # Simple expansion for $PATH
-                    if string.contains(val, "$PATH"):
-                        let v_parts = split(val, "$PATH")
-                        val = v_parts[0] + ENV_PATH
-                        if len(v_parts) > 1:
-                            val = val + v_parts[1]
-                    ENV_PATH = val
-            continue
-
-        if starts_with(cmd_line, "cd "):
-            let parts = split_first(cmd_line, " ")
-            let target = trim(parts[1])
-            if len(target) == 0:
-                let home = sys.getenv("HOME")
-                if home != nil:
-                    target = home
-            
-            let check_cmd = "cd " + CWD + " && cd '" + target + "' 2>/dev/null && pwd > /tmp/sage_cwd_new || echo 'ERROR' > /tmp/sage_cwd_new"
-            sys.exec(check_cmd)
-            let res = trim(io.readfile("/tmp/sage_cwd_new"))
-            if res == "ERROR":
-                print "cd: no such file or directory: " + target
-            else:
-                if len(res) > 0:
-                    CWD = res
-            continue
-        
-        let exec_cmd = "cd " + CWD + " && PATH=" + ENV_PATH + " " + cmd_line
-        sys.exec(exec_cmd)
 
 main()

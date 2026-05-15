@@ -32,6 +32,9 @@ case "$SHELL_NAME" in
     fish)
         CONFIG_FILE="$HOME/.config/fish/config.fish"
         ;;
+    SageShell)
+        CONFIG_FILE="$HOME/.sageshellrc"
+        ;;
     *)
         echo "Unknown shell: $SHELL_NAME. Please add $BIN_DIR to your PATH manually."
         ;;

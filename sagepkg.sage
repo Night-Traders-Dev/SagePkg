@@ -160,6 +160,9 @@ proc cmd_init():
     elif string.contains(shell, "fish"):
         config_file = home + "/.config/fish/config.fish"
         path_cmd = "set -gx PATH " + full_bin_path + " $PATH"
+    elif string.contains(shell, "SageShell"):
+        config_file = home + "/.sageshellrc"
+        path_cmd = "export PATH=" + full_bin_path + ":$PATH"
     
     if config_file != nil:
         if _io.exists(config_file):
