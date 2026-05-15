@@ -13,6 +13,13 @@
       "description": "A fish shell clone in Sage",
       "author": "Gemini CLI",
       "architectures": ["x86_64", "aarch64", "riscv64"]
+    },
+    {
+      "name": "sagepkg",
+      "version": "1.0.0",
+      "description": "The SageLang Package Manager",
+      "author": "Gemini CLI",
+      "architectures": ["universal"]
     }
   ]
 }

@@ -1,0 +1,9 @@
+{
+  "name": "sagepkg",
+  "version": "1.0.0",
+  "description": "The SageLang Package Manager",
+  "main": "universal/sagepkg.sage",
+  "files": [
+    "universal/sagepkg.sage"
+  ]
+}
