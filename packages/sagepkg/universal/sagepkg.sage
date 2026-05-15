@@ -216,7 +216,7 @@ proc cmd_update():
             
     if not sagepkg_in_updates:
         # If sagepkg is not in installed (bootstrap case) or not detected yet
-        let current_ver = "1.0.3" # Default/Current version
+        let current_ver = "1.1.0" # Default/Current version
         if installed["packages"]["sagepkg"] != nil:
             current_ver = installed["packages"]["sagepkg"]["version"]
             
@@ -522,9 +522,18 @@ proc main():
     let args = sys.args()
     let cmd_idx = 2
     if len(args) < 3:
-        print BOLD + CYAN + "SagePkg" + RESET + " - The SageLang Package Manager"
+        print GREEN + BOLD + "   _____                      _____  _         " + RESET
+        print GREEN + BOLD + "  / ____|                    |  __ \\| |        " + RESET
+        print GREEN + BOLD + " | (___   __ _  __ _  ___    | |__) | | __  __ " + RESET
+        print GREEN + BOLD + "  \\___ \\ / _` |/ _` |/ _ \\   |  ___/| |/ / / / " + RESET
+        print GREEN + BOLD + "  ____) | (_| | (_| |  __/   | |    |   < /_/  " + RESET
+        print GREEN + BOLD + " |_____/ \\__,_|\\__, |\\___|   |_|    |_|\\_\\\\__\\ " + RESET
+        print GREEN + BOLD + "                __/ |                          " + RESET
+        print GREEN + BOLD + "               |___/                           " + RESET
         print ""
-        print BOLD + "Usage:" + RESET + " sagepkg <command> [args]"
+        print BOLD + CYAN + " SagePkg" + RESET + " - The SageLang Package Manager"
+        print ""
+        print BOLD + " Usage:" + RESET + " sagepkg <command> [args]"
         print ""
         print BOLD + "Commands:" + RESET
         print "  update       Sync package index and check for updates"

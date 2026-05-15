@@ -226,15 +226,17 @@ proc get_user_host():
 
 # ASCII Art for Sage
 let logo = [
-    GREEN + "          ____          " + RESET,
-    GREEN + "        /      \\        " + RESET,
-    GREEN + "       |   " + YELLOW + "S" + GREEN + "    |       " + RESET,
-    GREEN + "        \\  " + YELLOW + "A" + GREEN + "  /        " + RESET,
-    GREEN + "         | " + YELLOW + "G" + GREEN + " |         " + RESET,
-    GREEN + "         | " + YELLOW + "G" + GREEN + " |         " + RESET,
-    GREEN + "         \\____/         " + RESET,
-    GREEN + "           ||           " + RESET,
-    GREEN + "           ||           " + RESET
+    GREEN + "      .-------.       " + RESET,
+    GREEN + "    .'  _____  '.     " + RESET,
+    GREEN + "   /   /     \\   \\    " + RESET,
+    GREEN + "  |   |       |   |   " + RESET,
+    GREEN + "  |   |  " + YELLOW + "SAGE" + GREEN + "  |   |   " + RESET,
+    GREEN + "  |   |       |   |   " + RESET,
+    GREEN + "   \\   \\_____/   /    " + RESET,
+    GREEN + "    '.         .'     " + RESET,
+    GREEN + "      '-------'       ",
+    GREEN + "         ||           " + RESET,
+    GREEN + "         ||           " + RESET
 ]
 
 let user_host_line = get_user_host()

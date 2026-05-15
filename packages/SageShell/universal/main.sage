@@ -10,6 +10,8 @@ let BLUE = ESC + "[34m"
 let CYAN = ESC + "[36m"
 let RED = ESC + "[31m"
 let GREY = ESC + "[90m"
+let MAGENTA = ESC + "[35m"
+let YELLOW = ESC + "[33m"
 
 let HISTORY = []
 let HISTORY_INDEX = 0
@@ -133,6 +135,55 @@ proc is_builtin(cmd):
         return true
     return false
 
+proc highlight(line):
+    if len(line) == 0:
+        return ""
+    
+    let result = ""
+    let parts = []
+    let current = ""
+    let in_string = false
+    
+    for i in range(len(line)):
+        let c = line[i]
+        if c == " " and not in_string:
+            if len(current) > 0:
+                push(parts, current)
+            push(parts, " ")
+            current = ""
+        elif c == chr(34): # Quote
+            in_string = not in_string
+            current = current + c
+        else:
+            current = current + c
+    
+    if len(current) > 0:
+        push(parts, current)
+        
+    let cmd_found = false
+    for i in range(len(parts)):
+        let p = parts[i]
+        if p == " ":
+            result = result + " "
+            continue
+            
+        if not cmd_found: # First non-space part is the command
+            cmd_found = true
+            if is_builtin(p):
+                result = result + MAGENTA + p + RESET
+            elif command_exists(p):
+                result = result + GREEN + p + RESET
+            else:
+                result = result + RED + p + RESET
+        elif p[0] == "-": # Flag
+            result = result + CYAN + p + RESET
+        elif p[0] == chr(34): # String
+            result = result + YELLOW + p + RESET
+        else:
+            result = result + p
+            
+    return result
+
 proc command_exists(cmd):
     if is_builtin(cmd):
         return true
@@ -239,15 +290,7 @@ proc sage_readline():
             sys.exec("printf '\\r" + ESC + "[K'")
             print_prompt()
             
-            let parts = split_first(line, " ")
-            let cmd = parts[0]
-            if len(cmd) > 0:
-                if command_exists(cmd):
-                    print_line_raw(GREEN + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
-                else:
-                    print_line_raw(RED + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
-            else:
-                print_line_raw(line)
+            print_line_raw(highlight(line))
                 
             if len(suggestion) > 0:
                 print_line_raw(GREY + suggestion + RESET)
