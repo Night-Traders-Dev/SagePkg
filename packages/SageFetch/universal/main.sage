@@ -168,6 +168,52 @@ proc get_cpu_info():
                 
     return "Generic CPU"
 
+proc get_gpu_info():
+    # 1. Try lspci (common for x86)
+    sys.exec("lspci 2>/dev/null | grep -iE 'vga|3d|2d' > /tmp/sage_gpu")
+    let out = io.readfile("/tmp/sage_gpu")
+    if out != nil and len(out) > 0:
+        let lines = split_lines(out)
+        for line in lines:
+            if string.contains(line, "controller: "):
+                let parts = split(line, "controller: ")
+                if len(parts) > 1:
+                    return trim(parts[1])
+            if string.contains(line, ": "):
+                let parts = split(line, ": ")
+                if len(parts) > 1:
+                    return trim(parts[1])
+        return trim(lines[0])
+
+    # 2. Try DRM (common for ARM/Integrated)
+    sys.exec("grep -v '^$' /sys/class/drm/card0/device/uevent 2>/dev/null | grep 'DRIVER=' > /tmp/sage_gpu_drm")
+    let drm = io.readfile("/tmp/sage_gpu_drm")
+    if drm != nil and len(drm) > 0:
+        if string.contains(drm, "DRIVER="):
+            let parts = split(trim(drm), "=")
+            if len(parts) > 1:
+                let drv = parts[1]
+                if drv == "panfrost": return "ARM Mali (Panfrost)"
+                if drv == "lima": return "ARM Mali (Lima)"
+                if drv == "etnaviv": return "Vivante (Etnaviv)"
+                if drv == "msm": return "Qualcomm Adreno"
+                if drv == "vc4": return "Broadcom VC4"
+                if drv == "v3d": return "Broadcom V3D"
+                if drv == "i915": return "Intel Graphics"
+                if drv == "amdgpu": return "AMD Radeon"
+                if drv == "nouveau": return "NVIDIA (Nouveau)"
+                return drv + " GPU"
+
+    # 3. Last fallback: check device tree (ARM)
+    sys.exec("cat /proc/device-tree/model 2>/dev/null > /tmp/sage_dt")
+    let dt = io.readfile("/tmp/sage_dt")
+    if dt != nil and string.contains(dt, "Orange Pi"):
+        if string.contains(dt, "5"): return "ARM Mali-G610 MP4"
+        if string.contains(dt, "3"): return "ARM Mali-G52"
+        return "ARM Mali"
+
+    return "unknown"
+
 proc get_mem_info():
     let content = read_proc_file("/proc/meminfo")
     if content == nil or len(content) == 0:
@@ -247,6 +293,7 @@ let kernel_info = get_kernel_info()
 let uptime_info = get_uptime_info()
 let shell_info = get_shell_info()
 let cpu_info = get_cpu_info()
+let gpu_info = get_gpu_info()
 let mem_info = get_mem_info()
 
 let info = [
@@ -257,6 +304,7 @@ let info = [
     CYAN + BOLD + "Uptime:  " + RESET + str(uptime_info),
     CYAN + BOLD + "Shell:   " + RESET + str(shell_info),
     CYAN + BOLD + "CPU:     " + RESET + str(cpu_info),
+    CYAN + BOLD + "GPU:     " + RESET + str(gpu_info),
     CYAN + BOLD + "Memory:  " + RESET + str(mem_info),
     "",
     "   " + ESC + "[40m  " + ESC + "[41m  " + ESC + "[42m  " + ESC + "[43m  " + ESC + "[44m  " + ESC + "[45m  " + ESC + "[46m  " + ESC + "[47m  " + RESET
