@@ -8,7 +8,10 @@ An interactive fish-like shell written in [SageLang](https://github.com/Night-Tr
 ## Features
 - **🌿 Prompt**: Modern Sage-themed prompt.
 - **⌨️ Key Combos**: Support for `Ctrl+L` (clear), `Ctrl+D` (exit), and `Ctrl+C`.
-- **📜 History**: Navigate through previous commands with Up/Down arrows.
+- **📜 History**: Navigate through previous commands with searching (Up/Down).
+- **🎨 Syntax Highlighting**: Real-time coloring for built-ins and external commands.
+- **💡 Autosuggestions**: History-based suggestions (Right Arrow or Tab to accept).
+- **⌨️ Tab Completion**: Basic path completion for files and directories.
 
 ## Project Structure
 - `universal/`: Source code.

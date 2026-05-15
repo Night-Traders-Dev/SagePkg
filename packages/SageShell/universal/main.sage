@@ -9,9 +9,11 @@ let GREEN = ESC + "[32m"
 let BLUE = ESC + "[34m"
 let CYAN = ESC + "[36m"
 let RED = ESC + "[31m"
+let GREY = ESC + "[90m"
 
 let HISTORY = []
 let HISTORY_INDEX = 0
+let IS_TTY = (sys.exec("[ -t 0 ]") == 0)
 
 proc trim(s):
     if s == nil:
@@ -65,97 +67,241 @@ let HOST = get_host()
 
 proc print_prompt():
     let p = GREEN + USER + "@" + HOST + RESET + " " + CYAN + BOLD + CWD + RESET + " 🌿 "
-    # Write to temp file and cat it without newline
     io.writefile("/tmp/sage_prompt", p)
     sys.exec("cat /tmp/sage_prompt | tr -d '\\n'")
-
-proc get_char():
-    sys.exec("stty -icanon -echo && dd bs=1 count=1 2>/dev/null > /tmp/sage_key && stty icanon echo")
-    let k = io.readfile("/tmp/sage_key")
-    if k == nil or len(k) == 0:
-        return nil
-    return k[0]
 
 proc print_line_raw(l):
     io.writefile("/tmp/sage_line", l)
     sys.exec("cat /tmp/sage_line | tr -d '\\n'")
 
+proc is_builtin(cmd):
+    if cmd == "exit" or cmd == "quit" or cmd == "help" or cmd == "cd" or cmd == "clear":
+        return true
+    return false
+
+proc command_exists(cmd):
+    if is_builtin(cmd):
+        return true
+    if len(cmd) == 0:
+        return false
+    if starts_with(cmd, "./") or starts_with(cmd, "/"):
+        return (sys.exec("test -x " + cmd) == 0)
+    let res = sys.exec("which " + cmd + " > /dev/null 2>&1")
+    return res == 0
+
+proc find_suggestion(line):
+    if len(line) == 0:
+        return ""
+    for i in range(len(HISTORY)):
+        let h = HISTORY[len(HISTORY) - 1 - i]
+        if starts_with(h, line):
+            return string.substr(h, len(line), len(h) - len(line))
+    return ""
+
+proc get_completions(line):
+    let last_space = -1
+    for i in range(len(line)):
+        if line[i] == " ":
+            last_space = i
+    let word = string.substr(line, last_space + 1, len(line) - last_space - 1)
+    
+    let results = []
+    
+    if last_space == -1:
+        # Complete commands (Built-ins + PATH)
+        let builtins = ["exit", "quit", "help", "cd", "clear"]
+        for i in range(len(builtins)):
+            if starts_with(builtins[i], word):
+                push(results, builtins[i])
+        
+        let path = sys.getenv("PATH")
+        if path != nil:
+            let dirs = split(path, ":")
+            for i in range(len(dirs)):
+                let d = dirs[i]
+                if io.isdir(d):
+                    # We use ls -1 because Sage might not have a full directory iterator yet
+                    sys.exec("ls -1 " + d + " 2>/dev/null > /tmp/sage_path_ls")
+                    let content = io.readfile("/tmp/sage_path_ls")
+                    if content != nil:
+                        let files = split(content, chr(10))
+                        for j in range(len(files)):
+                            let f = trim(files[j])
+                            if starts_with(f, word):
+                                # Check if f is already in results to avoid duplicates
+                                let exists = false
+                                for k in range(len(results)):
+                                    if results[k] == f:
+                                        exists = true
+                                if not exists:
+                                    push(results, f)
+    else:
+        # Complete paths
+        let dir = "."
+        let prefix = word
+        if string.contains(word, "/"):
+            # Find the last slash
+            let last_slash = -1
+            for i in range(len(word)):
+                if word[i] == "/":
+                    last_slash = i
+            dir = string.substr(word, 0, last_slash + 1)
+            if dir == "":
+                dir = "/"
+            prefix = string.substr(word, last_slash + 1, len(word) - last_slash - 1)
+        
+        sys.exec("ls -1 -F " + dir + " 2>/dev/null > /tmp/sage_ls")
+        let content = io.readfile("/tmp/sage_ls")
+        if content != nil:
+            let files = split(content, chr(10))
+            for i in range(len(files)):
+                let f = trim(files[i])
+                if starts_with(f, prefix):
+                    if dir == "." or dir == "./":
+                        push(results, f)
+                    else:
+                        push(results, dir + f)
+    return results
+
 proc sage_readline():
-    let line = ""
-    while true:
-        let ch = get_char()
-        if ch == nil:
+    if not IS_TTY:
+        sys.exec("read -r line_in && echo $line_in > /tmp/sage_in || echo 'EOF' > /tmp/sage_in")
+        let res = trim(io.readfile("/tmp/sage_in"))
+        if res == "EOF":
             return nil
+        return res
+
+    let line = ""
+    let suggestion = ""
+    let h_search = ""
+    
+    sys.exec("stty -icanon -echo")
+    
+    while true:
+        suggestion = find_suggestion(line)
+        sys.exec("printf '\\r" + ESC + "[K'")
+        print_prompt()
+        
+        let parts = split_first(line, " ")
+        let cmd = parts[0]
+        if len(cmd) > 0:
+            if command_exists(cmd):
+                print_line_raw(GREEN + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
+            else:
+                print_line_raw(RED + cmd + RESET + string.substr(line, len(cmd), len(line) - len(cmd)))
+        else:
+            print_line_raw(line)
             
+        if len(suggestion) > 0:
+            print_line_raw(GREY + suggestion + RESET)
+            for i in range(len(suggestion)):
+                sys.exec("printf '\\b'")
+        
+        sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
+        let k = io.readfile("/tmp/sage_key")
+        if k == nil or len(k) == 0:
+            sys.exec("stty icanon echo")
+            return nil
+        let ch = k[0]
         let code = ord(ch)
         
-        # Enter
         if code == 10 or code == 13:
             print ""
+            sys.exec("stty icanon echo")
             return line
             
-        # Backspace
         if code == 127 or code == 8:
             if len(line) > 0:
                 line = string.substr(line, 0, len(line) - 1)
-                # Move back, print space, move back
-                sys.exec("printf '\\b \\b'")
+                h_search = ""
             continue
             
-        # Ctrl+L
         if code == 12:
             sys.exec("clear")
-            print_prompt()
-            print_line_raw(line)
             continue
             
-        # Ctrl+D
         if code == 4:
             if len(line) == 0:
+                sys.exec("stty icanon echo")
                 return nil
             continue
             
-        # Ctrl+C
         if code == 3:
             print "^C"
+            sys.exec("stty icanon echo")
             return ""
             
-        # Escape sequence (Arrows)
+        if code == 9: # Tab
+            if len(suggestion) > 0:
+                line = line + suggestion
+            else:
+                let comps = get_completions(line)
+                if len(comps) == 1:
+                    let last_space = -1
+                    for i in range(len(line)):
+                        if line[i] == " ":
+                            last_space = i
+                    line = string.substr(line, 0, last_space + 1) + comps[0]
+                elif len(comps) > 1:
+                    print ""
+                    let comp_line = ""
+                    for i in range(len(comps)):
+                        comp_line = comp_line + comps[i] + "  "
+                        if len(comp_line) > 60:
+                            print comp_line
+                            comp_line = ""
+                    if len(comp_line) > 0:
+                        print comp_line
+            continue
+
         if code == 27:
-            let next1 = get_char()
-            if next1 != nil and ord(next1) == 91:
-                let next2 = get_char()
-                # Up=A, Down=B
+            sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
+            let next1 = io.readfile("/tmp/sage_key")
+            if next1 != nil and ord(next1[0]) == 91:
+                sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
+                let next2 = io.readfile("/tmp/sage_key")
                 if next2 != nil:
-                    let dir = ord(next2)
+                    let dir = ord(next2[0])
                     if dir == 65: # Up
-                        if HISTORY_INDEX > 0:
-                            # Clear current line
-                            for i in range(len(line)):
-                                sys.exec("printf '\\b \\b'")
-                            HISTORY_INDEX = HISTORY_INDEX - 1
-                            line = HISTORY[HISTORY_INDEX]
-                            print_line_raw(line)
+                        if h_search == "":
+                            h_search = line
+                        let found = false
+                        let idx = HISTORY_INDEX - 1
+                        while idx >= 0:
+                            if starts_with(HISTORY[idx], h_search):
+                                HISTORY_INDEX = idx
+                                line = HISTORY[idx]
+                                found = true
+                                break
+                            idx = idx - 1
                         continue
                     if dir == 66: # Down
-                        if HISTORY_INDEX < len(HISTORY):
-                            # Clear current line
-                            for i in range(len(line)):
-                                sys.exec("printf '\\b \\b'")
-                            HISTORY_INDEX = HISTORY_INDEX + 1
-                            if HISTORY_INDEX == len(HISTORY):
-                                line = ""
-                            else:
-                                line = HISTORY[HISTORY_INDEX]
-                            print_line_raw(line)
+                        if h_search == "":
+                            h_search = line
+                        let found = false
+                        let idx = HISTORY_INDEX + 1
+                        while idx < len(HISTORY):
+                            if starts_with(HISTORY[idx], h_search):
+                                HISTORY_INDEX = idx
+                                line = HISTORY[idx]
+                                found = true
+                                break
+                            idx = idx + 1
+                        if not found:
+                            line = h_search
+                            HISTORY_INDEX = len(HISTORY)
+                        continue
+                    if dir == 67: # Right
+                        if len(suggestion) > 0:
+                            line = line + suggestion
                         continue
             continue
 
-        # Regular character
         if code >= 32 and code <= 126:
             line = line + ch
-            print_line_raw(ch)
+            h_search = ""
             
+    sys.exec("stty icanon echo")
     return line
 
 proc main():
@@ -174,7 +320,6 @@ proc main():
         if len(cmd_line) == 0:
             continue
             
-        # Add to history
         if len(HISTORY) == 0 or HISTORY[len(HISTORY)-1] != cmd_line:
             push(HISTORY, cmd_line)
             
@@ -187,15 +332,8 @@ proc main():
             
         if cmd_line == "help":
             print "SageShell - A fish clone in Sage"
-            print "Built-in commands:"
-            print "  cd <dir>   - Change directory"
-            print "  clear      - Clear the screen"
-            print "  help       - Show this help"
-            print "  exit       - Exit the shell"
-            print "Key combos:"
-            print "  Ctrl+L     - Clear screen"
-            print "  Ctrl+D     - Exit"
-            print "  Up/Down    - History"
+            print "Built-in commands: cd, clear, help, exit"
+            print "Fish features: Syntax Highlighting, Autosuggestions, Tab Completion, History Search"
             continue
             
         if starts_with(cmd_line, "cd "):
@@ -216,11 +354,7 @@ proc main():
                     CWD = res
             continue
         
-        # Execute external command
         let exec_cmd = "cd " + CWD + " && " + cmd_line
-        let ret = sys.exec(exec_cmd)
-        if ret != 0:
-            let dummy = 0
-
+        sys.exec(exec_cmd)
 
 main()
