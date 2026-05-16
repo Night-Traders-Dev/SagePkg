@@ -256,11 +256,15 @@ proc highlight(line):
             continue
         if not cmd_found:
             cmd_found = true
-            if is_builtin(p): result = result + MAGENTA + BOLD + p + RESET
-            elif command_exists(p): result = result + GREEN + BOLD + p + RESET
+            if is_builtin(p):
+                    result = result + MAGENTA + BOLD + p + RESET
+            elif command_exists(p):
+                    result = result + GREEN + BOLD + p + RESET
             else: result = result + RED + p + RESET
-        elif p[0] == "-": result = result + CYAN + p + RESET
-        elif p[0] == chr(34) or p[0] == chr(39): result = result + YELLOW + p + RESET
+        elif p[0] == "-":
+                result = result + CYAN + p + RESET
+        elif p[0] == chr(34) or p[0] == chr(39):
+                result = result + YELLOW + p + RESET
         else: result = result + p
     return result
 
@@ -293,7 +297,8 @@ proc get_completions(line):
     if last_space == -1:
         let builtins = ["exit", "quit", "help", "cd", "clear", "export", "env", "version"]
         for i in range(len(builtins)):
-            if starts_with(builtins[i], word): push(results, builtins[i])
+            if starts_with(builtins[i], word):
+                    push(results, builtins[i])
         let path = ENV_PATH
         if path != nil:
             let dirs = split(path, ":")
@@ -309,17 +314,21 @@ proc get_completions(line):
                             if starts_with(f, word):
                                 let exists = false
                                 for k in range(len(results)):
-                                    if results[k] == f: exists = true
-                                if not exists: push(results, f)
+                                    if results[k] == f:
+                                            exists = true
+                                if not exists:
+                                        push(results, f)
     else:
         let dir = "."
         let prefix = word
         if str_contains(word, "/"):
             let last_slash = -1
             for i in range(len(word)):
-                if word[i] == "/": last_slash = i
+                if word[i] == "/":
+                        last_slash = i
             dir = word[0:last_slash+1]
-            if dir == "": dir = "/"
+            if dir == "":
+                    dir = "/"
             prefix = word[last_slash+1:len(word)]
         sys.exec("ls -1 -F " + dir + " 2>/dev/null > /tmp/sage_ls")
         let content = io.readfile("/tmp/sage_ls")
@@ -328,7 +337,8 @@ proc get_completions(line):
             for i in range(len(files)):
                 let f = trim(files[i])
                 if starts_with(f, prefix):
-                    if dir == "." or dir == "./": push(results, f)
+                    if dir == "." or dir == "./":
+                            push(results, f)
                     else: push(results, dir + f)
     return results
 
@@ -361,15 +371,18 @@ proc sage_readline():
             last_sec = current_time
 
         if needs_redraw:
-            if cursor == len(line): suggestion = find_suggestion(line)
+            if cursor == len(line):
+                    suggestion = find_suggestion(line)
             else: suggestion = ""
 
             io.writefile("/dev/stdout", "\r" + ESC + "[K")
             print_prompt()
 
-            if cursor > 0: print_line_raw(highlight(line[0:cursor]))
+            if cursor > 0:
+                    print_line_raw(highlight(line[0:cursor]))
             let after = line[cursor:len(line)]
-            if len(after) > 0: print_line_raw(after)
+            if len(after) > 0:
+                    print_line_raw(after)
 
             if cursor == len(line) and len(suggestion) > 0:
                 print_line_raw(GREY + ITALIC + suggestion + RESET)
@@ -436,7 +449,8 @@ proc sage_readline():
                 if len(comps) == 1:
                     let last_space = -1
                     for i in range(len(line)):
-                        if line[i] == " ": last_space = i
+                        if line[i] == " ":
+                                last_space = i
                     line = line[0:last_space+1] + comps[0]
                     cursor = len(line)
                 elif len(comps) > 1:
@@ -447,7 +461,8 @@ proc sage_readline():
                         if len(comp_line) > 60:
                             print comp_line
                             comp_line = ""
-                    if len(comp_line) > 0: print comp_line
+                    if len(comp_line) > 0:
+                            print comp_line
             continue
 
         if code == 27:
@@ -459,7 +474,8 @@ proc sage_readline():
                 if next2 != nil:
                     let d = ord(next2[0])
                     if d == 65:
-                        if h_search == "": h_search = line[0:cursor]
+                        if h_search == "":
+                                h_search = line[0:cursor]
                         let idx = HISTORY_INDEX - 1
                         while idx >= 0:
                             if starts_with(HISTORY[idx], h_search):
@@ -470,7 +486,8 @@ proc sage_readline():
                             idx = idx - 1
                         continue
                     if d == 66:
-                        if h_search == "": h_search = line[0:cursor]
+                        if h_search == "":
+                                h_search = line[0:cursor]
                         let idx = HISTORY_INDEX + 1
                         let found = false
                         while idx < len(HISTORY):
@@ -487,13 +504,15 @@ proc sage_readline():
                             HISTORY_INDEX = len(HISTORY)
                         continue
                     if d == 67:
-                        if cursor < len(line): cursor = cursor + 1
+                        if cursor < len(line):
+                                cursor = cursor + 1
                         elif len(suggestion) > 0:
                             line = line + suggestion
                             cursor = len(line)
                         continue
                     if d == 68:
-                        if cursor > 0: cursor = cursor - 1
+                        if cursor > 0:
+                                cursor = cursor - 1
                         continue
                     if d == 72:
                         cursor = 0
@@ -526,7 +545,8 @@ proc process_command(cmd_line):
 
     let start_t = sys.clock()
 
-    if cmd_line == "exit" or cmd_line == "quit": return false
+    if cmd_line == "exit" or cmd_line == "quit":
+            return false
     
     let is_handled = false
     if cmd_line == "clear":
@@ -583,7 +603,8 @@ proc process_command(cmd_line):
                 if str_contains(val, "$PATH"):
                     let v_parts = split(val, "$PATH")
                     val = v_parts[0] + ENV_PATH
-                    if len(v_parts) > 1: val = val + v_parts[1]
+                    if len(v_parts) > 1:
+                            val = val + v_parts[1]
                 ENV_PATH = val
         is_handled = true
     elif starts_with(cmd_line, "cd "):
@@ -591,7 +612,8 @@ proc process_command(cmd_line):
         let target = trim(parts[1])
         if len(target) == 0:
             let h = sys.getenv("HOME")
-            if h != nil: target = h
+            if h != nil:
+                    target = h
         let check_cmd = "cd " + CWD + " && cd '" + target + "' 2>/dev/null && pwd > /tmp/sage_cwd_new || echo 'ERROR' > /tmp/sage_cwd_new"
         sys.exec(check_cmd)
         let res = trim(io.readfile("/tmp/sage_cwd_new"))
