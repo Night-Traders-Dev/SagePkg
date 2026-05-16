@@ -293,7 +293,7 @@ proc cmd_update():
         if ans == "y" or ans == "Y":
             _sys.exec("mv '" + new_index_file + "' '" + INDEX_FILE + "'")
             for i in range(len(updates)):
-                cmd_install(updates[i]["name"])
+                cmd_install(updates[i]["name"], false)
             ui_success("All packages updated.")
         else:
             _sys.exec("mv '" + new_index_file + "' '" + INDEX_FILE + "'")
@@ -315,7 +315,9 @@ proc cmd_list():
         let p = pkgs[i]
         print GREEN + BOLD + p["name"] + RESET + " (v" + p["version"] + ") - " + p["description"]
 
-proc cmd_install(pkg_name):
+proc cmd_install(pkg_name, reinstall):
+    if reinstall:
+        cmd_remove(pkg_name)
     if pkg_name == nil or len(pkg_name) == 0:
         ui_error("Invalid package name.")
         return
@@ -670,7 +672,11 @@ proc main():
         if len(args) < 4:
             ui_error("Missing package name.")
         else:
-            cmd_install(args[3])
+            let pkg = args[3]
+            let reinstall = false
+            if len(args) > 4 and args[4] == "--reinstall":
+                reinstall = true
+            cmd_install(pkg, reinstall)
     elif cmd == "build":
         if len(args) < 4:
             ui_error("Missing package name.")
