@@ -140,7 +140,7 @@ proc download_file(url, dest):
         ui_error("Refusing to download to unsafe path: " + dest)
         return false
     let safe_url = sanitize_url(url)
-    let cmd = "curl -sL '" + safe_url + "' -o '" + dest + "'"
+    let cmd = "curl -sL -H 'Cache-Control: no-cache' '" + safe_url + "' -o '" + dest + "'"
     let res = _sys.exec(cmd)
     if res != 0:
         ui_error("curl failed with exit code " + str(res))
@@ -241,8 +241,7 @@ proc cmd_update(force):
     ui_step("Updating package index...")
     ensure_dir(CONFIG_DIR)
     
-    # Add a timestamp to bypass GitHub's raw cache
-    let url = REPO_URL + "/packages.json?t=" + str(_sys.clock() | 0)
+    let url = REPO_URL + "/packages.json"
     let new_index_file = CONFIG_DIR + "/packages_new.json"
 
     ui_verbose("Remote URL: " + url)
@@ -377,8 +376,7 @@ proc cmd_install(pkg_name, reinstall):
     ensure_dir(pkg_dir)
 
     ui_info("Downloading metadata...")
-    let t = str(_sys.clock() | 0)
-    let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json?t=" + t
+    let meta_url = REPO_URL + "/packages/" + pkg_name + "/metadata.json"
     let meta_file = pkg_dir + "/metadata.json"
     if not download_file(meta_url, meta_file):
         ui_error("Failed to download metadata.")
@@ -409,9 +407,9 @@ proc cmd_install(pkg_name, reinstall):
 
         let f_url = nil
         if string.contains(fname, "universal/"):
-            f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname + "?t=" + t
+            f_url = REPO_URL + "/packages/" + pkg_name + "/" + fname
         else:
-            f_url = REPO_URL + "/packages/" + pkg_name + "/" + arch + "/" + fname + "?t=" + t
+            f_url = REPO_URL + "/packages/" + pkg_name + "/" + arch + "/" + fname
 
         let f_dest = pkg_dir + "/" + fname
         if string.contains(fname, "/"):
