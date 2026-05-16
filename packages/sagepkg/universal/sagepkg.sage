@@ -674,6 +674,10 @@ proc main():
         return
 
     let cmd = args[cmd_idx]
+    let force = false
+    if len(args) > cmd_idx + 1 and args[cmd_idx+1] == "--force":
+        force = true
+    
     if cmd == "update":
         cmd_update(force)
     elif cmd == "sync":
