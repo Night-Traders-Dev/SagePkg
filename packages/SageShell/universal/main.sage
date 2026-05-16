@@ -1,6 +1,6 @@
 import sys
 import io
-from ui import *
+import ui
 
 let HISTORY = []
 let HISTORY_INDEX = 0
@@ -83,35 +83,28 @@ let CWD = get_cwd()
 let USER = get_user()
 
 let ENV_PATH = sys.getenv("PATH")
-let home = sys.getenv("HOME")
+let HOME = sys.getenv("HOME")
 
-if home != nil:
-    sys.exec("sage " + home + "/.sagepkg/packages/SageUtils/universal/ui_worker.sage >/dev/null 2>&1 &")
+if HOME != nil:
+    sys.exec("sage " + HOME + "/.sagepkg/packages/SageUtils/universal/ui_worker.sage >/dev/null 2>&1 &")
 
 if ENV_PATH == nil or len(ENV_PATH) < 5:
     ENV_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-if home != nil:
-    let s_bin = home + "/.sagepkg/bin"
+if HOME != nil:
+    let s_bin = HOME + "/.sagepkg/bin"
     if not str_contains(ENV_PATH, s_bin):
         ENV_PATH = s_bin + ":" + ENV_PATH
     else:
         let parts = split(ENV_PATH, ":")
         let new_path = s_bin
         for i in range(len(parts)):
-            if parts[i] != s_bin and len(parts[i]) > 0:
+            if parts[i] != s_bin:
                 new_path = new_path + ":" + parts[i]
         ENV_PATH = new_path
 
-let sys_paths = ["/usr/local/bin", "/usr/bin", "/bin"]
-for i in range(len(sys_paths)):
-    if not str_contains(ENV_PATH, sys_paths[i]):
-        ENV_PATH = ENV_PATH + ":" + sys_paths[i]
-
 proc get_git_info():
-    sys.exec("git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo 'yes' > /tmp/sage_git_is || echo 'no' > /tmp/sage_git_is")
-    let is_git = io.readfile("/tmp/sage_git_is")
-    if is_git == nil or trim(is_git) == "no":
+    if not io.exists(".git"):
         return ""
     sys.exec("git branch --show-current > /tmp/sage_git_branch 2>/dev/null")
     let b = io.readfile("/tmp/sage_git_branch")
@@ -143,50 +136,41 @@ proc highlight(line):
     let current = ""
     let in_string = false
     for i in range(len(line)):
-        let c = line[i]
-        if c == " " and not in_string:
-            if len(current) > 0:
-                push(parts, current)
-            push(parts, " ")
-            current = ""
-        elif c == chr(34) or c == chr(39):
+        let ch = line[i]
+        if ch == chr(34):
             in_string = not in_string
-            current = current + c
+            current = current + ch
+            if not in_string:
+                push(parts, [current, "string"])
+                current = ""
+        elif in_string:
+            current = current + ch
+        elif ch == " ":
+            if len(current) > 0:
+                push(parts, [current, "word"])
+                current = ""
+            push(parts, [" ", "space"])
         else:
-            current = current + c
+            current = current + ch
     if len(current) > 0:
-            push(parts, current)
-    let cmd_found = false
+        push(parts, [current, "word"])
+
     for i in range(len(parts)):
         let p = parts[i]
-        if p == " ":
-            result = result + " "
-            continue
-        if not cmd_found:
-            cmd_found = true
-            if is_builtin(p):
-                result = result + ui.MAGENTA + ui.BOLD + p + ui.RESET
-            elif command_exists(p):
-                result = result + ui.GREEN + ui.BOLD + p + ui.RESET
+        let text = p[0]
+        let type = p[1]
+        if type == "string":
+            result = result + ui.YELLOW + text + ui.RESET
+        elif type == "word":
+            if is_builtin(text):
+                result = result + ui.CYAN + ui.BOLD + text + ui.RESET
+            elif starts_with(text, "-"):
+                result = result + ui.GREY + text + ui.RESET
             else:
-                result = result + ui.RED + p + ui.RESET
-        elif p[0] == "-":
-                result = result + ui.CYAN + p + ui.RESET
-        elif p[0] == chr(34) or p[0] == chr(39):
-                result = result + ui.YELLOW + p + ui.RESET
+                result = result + text
         else:
-                result = result + p
+            result = result + text
     return result
-
-proc command_exists(cmd):
-    if is_builtin(cmd):
-        return true
-    if len(cmd) == 0:
-        return false
-    if starts_with(cmd, "./") or starts_with(cmd, "/"):
-        return (sys.exec("test -x " + cmd) == 0)
-    let check_cmd = "PATH=" + ENV_PATH + " which " + cmd + " > /dev/null 2>&1"
-    return sys.exec(check_cmd) == 0
 
 proc find_suggestion(line):
     if len(line) == 0:
@@ -198,59 +182,33 @@ proc find_suggestion(line):
     return ""
 
 proc get_completions(line):
-    let last_space = -1
-    for i in range(len(line)):
-        if line[i] == " ":
-            last_space = i
-    let word = line[last_space+1:len(line)]
     let results = []
-    if last_space == -1:
-        let builtins = ["exit", "quit", "help", "cd", "clear", "export", "env", "version"]
-        for i in range(len(builtins)):
-            if starts_with(builtins[i], word):
-                    push(results, builtins[i])
-        let path = ENV_PATH
-        if path != nil:
-            let dirs = split(path, ":")
-            for i in range(len(dirs)):
-                let d = dirs[i]
-                if io.isdir(d):
-                    sys.exec("ls -1 " + d + " 2>/dev/null > /tmp/sage_path_ls")
-                    let content = io.readfile("/tmp/sage_path_ls")
-                    if content != nil:
-                        let files = split(content, chr(10))
-                        for j in range(len(files)):
-                            let f = trim(files[j])
-                            if starts_with(f, word):
-                                let exists = false
-                                for k in range(len(results)):
-                                    if results[k] == f:
-                                        exists = true
-                                if not exists:
-                                    push(results, f)
-    else:
-        let dir = "."
-        let prefix = word
-        if str_contains(word, "/"):
-            let last_slash = -1
-            for i in range(len(word)):
-                if word[i] == "/":
-                    last_slash = i
-            dir = word[0:last_slash+1]
-            if dir == "":
-                    dir = "/"
-            prefix = word[last_slash+1:len(word)]
-        sys.exec("ls -1 -F " + dir + " 2>/dev/null > /tmp/sage_ls")
-        let content = io.readfile("/tmp/sage_ls")
-        if content != nil:
-            let files = split(content, chr(10))
-            for i in range(len(files)):
-                let f = trim(files[i])
-                if starts_with(f, prefix):
-                    if dir == "." or dir == "./":
+    let parts = split(line, " ")
+    let last = parts[len(parts)-1]
+    
+    # Files
+    sys.exec("ls -a > /tmp/sage_ls")
+    let content = io.readfile("/tmp/sage_ls")
+    if content != nil:
+        let lines = split(content, chr(10))
+        for i in range(len(lines)):
+            let f = trim(lines[i])
+            if f != "." and f != ".." and starts_with(f, last):
+                push(results, f)
+    
+    # Commands from PATH
+    let path_parts = split(ENV_PATH, ":")
+    for i in range(len(path_parts)):
+        let dir = path_parts[i]
+        if io.exists(dir):
+            sys.exec("ls " + dir + " > /tmp/sage_path_ls")
+            let c = io.readfile("/tmp/sage_path_ls")
+            if c != nil:
+                let lns = split(c, chr(10))
+                for j in range(len(lns)):
+                    let f = trim(lns[j])
+                    if starts_with(f, last):
                         push(results, f)
-                    else:
-                        push(results, dir + f)
     return results
 
 proc restore_terminal():
