@@ -177,10 +177,12 @@ proc draw_status_bar():
     let right_len = len(right)
 
     let pad_left_len = (cols / 2 | 0) - left_len - (mid_len / 2 | 0)
-    if pad_left_len < 1: pad_left_len = 1
+    if pad_left_len < 1:
+        pad_left_len = 1
 
     let pad_right_len = cols - left_len - pad_left_len - mid_len - right_len
-    if pad_right_len < 1: pad_right_len = 1
+    if pad_right_len < 1:
+        pad_right_len = 1
 
     let bar = ESC + "[44;37m" + left
     for i in range(pad_left_len):

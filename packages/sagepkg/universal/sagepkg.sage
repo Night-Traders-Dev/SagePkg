@@ -675,7 +675,9 @@ proc main():
 
     let cmd = args[cmd_idx]
     if cmd == "update":
-        cmd_update()
+        cmd_update(force)
+    elif cmd == "sync":
+        cmd_sync()
     elif cmd == "list":
         cmd_list()
     elif cmd == "install":
