@@ -108,14 +108,13 @@ proc ensure_dir(dir):
 # Rejects paths with ".." traversal or shell metacharacters.
 # Allowed: a-z A-Z 0-9 - _ / .
 # ============================================================================
-proc str_contains(s, sub):
-    return len(split(s, sub)) > 1
-
 proc is_safe_path(p):
     if p == nil or len(p) == 0:
         return false
-    if str_contains(p, ".."):
-        return false
+    # Check for ".." manually to avoid external procedure dependencies
+    for i in range(len(p) - 1):
+        if p[i] == "." and p[i+1] == ".":
+            return false
     for i in range(len(p)):
         let c = p[i]
         if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or
