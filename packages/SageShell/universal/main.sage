@@ -506,7 +506,7 @@ proc process_command(cmd_line):
 
 proc main():
     load_history()
-    print ui.BG_CYAN + ui.BG_BLUE + ui.BOLD + ui.WHITE + " Welcome to SageShell v2.0.0 " + ui.RESET
+    print ui.BG_CYAN + ui.BG_BLUE + ui.BOLD + ui.WHITE + " Welcome to SageShell v2.1.0 " + ui.RESET
     print ui.ITALIC + "Type 'help' for commands, 'exit' to quit." + ui.RESET
 
     let h = sys.getenv("HOME")
