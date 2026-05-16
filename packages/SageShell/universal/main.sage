@@ -154,7 +154,8 @@ proc get_git_info():
 
 proc get_cached_state():
     let content = io.readfile(STATE_FILE)
-    if content == nil: return ["N/A", "N/A", "24 80"]
+    if content == nil:
+        return ["N/A", "N/A", "24 80"]
     return split(content, "|")
 
 proc draw_status_bar():
@@ -323,6 +324,9 @@ proc get_completions(line):
                     else: push(results, dir + f)
     return results
 
+proc restore_terminal():
+    sys.exec("stty icanon echo")
+
 proc sage_readline():
     if not IS_TTY:
         sys.exec("read -r line_in && echo $line_in > /tmp/sage_in || echo 'EOF' > /tmp/sage_in")
@@ -381,7 +385,7 @@ proc sage_readline():
 
         if code == 10 or code == 13:
             print ""
-            sys.exec("stty icanon echo")
+            restore_terminal()
             return line
 
         if code == 127 or code == 8:
@@ -397,13 +401,13 @@ proc sage_readline():
 
         if code == 4:
             if len(line) == 0:
-                sys.exec("stty icanon echo")
+                restore_terminal()
                 return nil
             continue
 
         if code == 3:
             io.writefile("/dev/stdout", "\r" + ESC + "[K^C\r\n")
-            sys.exec("stty icanon echo")
+            restore_terminal()
             return ""
 
         if code == 1:
@@ -503,7 +507,7 @@ proc sage_readline():
             cursor = cursor + 1
             h_search = ""
 
-    sys.exec("stty icanon echo")
+    restore_terminal()
     return line
 
 proc process_command(cmd_line):

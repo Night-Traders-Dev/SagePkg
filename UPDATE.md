@@ -1,5 +1,17 @@
 # SagePkg Updates
 
+## [1.5.2] - 2026-05-16
+### Security
+- **SagePkg**: Mitigated potential command injection in `download_file` by introducing URL sanitization and stripping single quotes from input URLs.
+
+### Fixed
+- **SageNano**: Implemented robust terminal state restoration (`stty icanon echo`) on all exit points.
+- **SageShell**: Implemented robust terminal state restoration (`stty icanon echo`) on all exit points, ensuring terminal reset even on abnormal exits.
+- **SageShell**: Corrected syntax error in `main.sage` where `if` condition required newline separation for its body.
+
+### Changed
+- Incremented all package versions to 1.5.2 in `metadata.json`.
+
 ## [1.5.1] - 2026-05-15
 ### Security
 - **SagePkg**: Added `is_safe_path()` validation for all file paths received from downloaded metadata, preventing path-traversal and shell-injection via malicious packages.

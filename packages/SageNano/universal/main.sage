@@ -537,6 +537,10 @@ class Editor:
         elif code >= 32 and code <= 126:
             self.buffer.insert_char(ch)
 
+    proc restore_terminal():
+        sys.exec("stty icanon echo")
+        io.writefile("/dev/stdout", exit_alt())
+
     proc loop():
         # Enter alternate screen buffer to prevent scroll and reduce flicker
         io.writefile("/dev/stdout", enter_alt())
@@ -548,8 +552,7 @@ class Editor:
             if k == nil or len(k) == 0:
                 continue
             self.process_key(ord(k[0]), k[0])
-        sys.exec("stty icanon echo")
-        io.writefile("/dev/stdout", exit_alt())
+        restore_terminal()
 
 # ============================================================================
 # Entry point

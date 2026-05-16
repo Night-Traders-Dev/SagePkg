@@ -121,6 +121,14 @@ proc is_safe_path(p):
             return false
     return true
 
+proc sanitize_url(url):
+    # Strip single quotes which would break out of our shell command
+    let res = ""
+    for i in range(len(url)):
+        if url[i] != chr(39):
+            res = res + url[i]
+    return res
+
 # ============================================================================
 # Shell-safe file download. URL components are validated before use.
 # ============================================================================
@@ -129,7 +137,8 @@ proc download_file(url, dest):
     if not is_safe_path(dest):
         ui_error("Refusing to download to unsafe path: " + dest)
         return false
-    let cmd = "curl -sL '" + url + "' -o '" + dest + "'"
+    let safe_url = sanitize_url(url)
+    let cmd = "curl -sL '" + safe_url + "' -o '" + dest + "'"
     let res = _sys.exec(cmd)
     if res != 0:
         ui_error("curl failed with exit code " + str(res))
