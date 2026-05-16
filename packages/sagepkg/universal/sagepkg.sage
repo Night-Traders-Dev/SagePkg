@@ -228,13 +228,23 @@ proc cmd_init():
                 ui_info("Creating " + config_file + " and setting PATH...")
                 _io.writefile(config_file, "# SagePkg PATH" + chr(10) + path_cmd + chr(10))
 
-proc cmd_update():
+let VERBOSE = false
+
+proc ui_verbose(msg):
+    if VERBOSE:
+        print DIM + "  [debug] " + msg + RESET
+
+proc cmd_update(force):
     cmd_init()
     ui_step("Updating package index...")
+    ui_verbose("Remote URL: " + REPO_URL + "/packages.json")
     ensure_dir(CONFIG_DIR)
     let url = REPO_URL + "/packages.json"
     let new_index_file = CONFIG_DIR + "/packages_new.json"
 
+    if force:
+        ui_info("Forcing fresh download...")
+    
     if not download_file(url, new_index_file):
         ui_error("Failed to download index from " + url)
         return
