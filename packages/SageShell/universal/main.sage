@@ -237,7 +237,8 @@ proc highlight(line):
     for i in range(len(line)):
         let c = line[i]
         if c == " " and not in_string:
-            if len(current) > 0: push(parts, current)
+            if len(current) > 0:
+            push(parts, current)
             push(parts, " ")
             current = ""
         elif c == chr(34) or c == chr(39):
@@ -245,7 +246,8 @@ proc highlight(line):
             current = current + c
         else:
             current = current + c
-    if len(current) > 0: push(parts, current)
+    if len(current) > 0:
+            push(parts, current)
     let cmd_found = false
     for i in range(len(parts)):
         let p = parts[i]
@@ -263,8 +265,10 @@ proc highlight(line):
     return result
 
 proc command_exists(cmd):
-    if is_builtin(cmd): return true
-    if len(cmd) == 0: return false
+    if is_builtin(cmd):
+        return true
+    if len(cmd) == 0:
+        return false
     if starts_with(cmd, "./") or starts_with(cmd, "/"):
         return (sys.exec("test -x " + cmd) == 0)
     let check_cmd = "PATH=" + ENV_PATH + " which " + cmd + " > /dev/null 2>&1"
@@ -335,7 +339,8 @@ proc sage_readline():
     if not IS_TTY:
         sys.exec("read -r line_in && echo $line_in > /tmp/sage_in || echo 'EOF' > /tmp/sage_in")
         let res = trim(io.readfile("/tmp/sage_in"))
-        if res == "EOF": return nil
+        if res == "EOF":
+        return nil
         return res
 
     let line = ""
