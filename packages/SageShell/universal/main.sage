@@ -1,30 +1,6 @@
 import sys
 import io
-
-let ESC = chr(27)
-let RESET = ESC + "[0m"
-let BOLD = ESC + "[1m"
-let DIM = ESC + "[2m"
-let ITALIC = ESC + "[3m"
-let UNDERLINE = ESC + "[4m"
-
-let GREEN = ESC + "[32m"
-let BLUE = ESC + "[34m"
-let CYAN = ESC + "[36m"
-let RED = ESC + "[31m"
-let GREY = ESC + "[90m"
-let MAGENTA = ESC + "[35m"
-let YELLOW = ESC + "[33m"
-let WHITE = ESC + "[37m"
-
-let BG_BLACK = ESC + "[40m"
-let BG_RED = ESC + "[41m"
-let BG_GREEN = ESC + "[42m"
-let BG_YELLOW = ESC + "[43m"
-let BG_BLUE = ESC + "[44m"
-let BG_MAGENTA = ESC + "[45m"
-let BG_CYAN = ESC + "[46m"
-let BG_WHITE = ESC + "[47m"
+import "ui.sage" as ui
 
 let HISTORY = []
 let HISTORY_INDEX = 0
@@ -109,7 +85,6 @@ let USER = get_user()
 let ENV_PATH = sys.getenv("PATH")
 let home = sys.getenv("HOME")
 
-let STATE_FILE = "/tmp/sage_ui_state"
 if home != nil:
     sys.exec("sage " + home + "/.sagepkg/packages/SageUtils/universal/ui_worker.sage >/dev/null 2>&1 &")
 
@@ -152,73 +127,6 @@ proc get_git_info():
         return branch_name + dirty
     return ""
 
-proc get_cached_state():
-    let content = io.readfile(STATE_FILE)
-    if content == nil:
-        return ["N/A", "N/A", "24 80"]
-    return split(content, "|")
-
-proc draw_status_bar():
-    if not IS_TTY:
-        return
-    let state = get_cached_state()
-    let time = state[0]
-    let temp = state[1]
-    let size_parts = split(state[2], " ")
-    let rows = tonumber(size_parts[0])
-    let cols = tonumber(size_parts[1])
-
-    let left = " 🐚 SageShell " + BOLD + CWD + RESET
-    let mid = time
-    let right = temp + " "
-
-    let left_len = len(left) - 10 
-    let mid_len = len(mid)
-    let right_len = len(right)
-
-    let pad_left_len = (cols / 2 | 0) - left_len - (mid_len / 2 | 0)
-    if pad_left_len < 1:
-        pad_left_len = 1
-
-    let pad_right_len = cols - left_len - pad_left_len - mid_len - right_len
-    if pad_right_len < 1:
-        pad_right_len = 1
-
-    let bar = ESC + "[44;37m" + left
-    for i in range(pad_left_len):
-        bar = bar + " "
-    bar = bar + mid
-    for i in range(pad_right_len):
-        bar = bar + " "
-    bar = bar + right + RESET
-
-    let output = ESC + "[s" + ESC + "[" + str(rows) + ";1H" + bar + ESC + "[u"
-    io.writefile("/dev/stdout", output)
-
-proc print_prompt():
-    let g = get_git_info()
-    let time_str = ""
-    if LAST_EXEC_TIME > 0.0:
-        if LAST_EXEC_TIME > 1.0:
-            time_str = " ⏳ " + str((LAST_EXEC_TIME * 10 | 0) / 10.0) + "s "
-        else:
-            time_str = " ⏳ " + str((LAST_EXEC_TIME * 1000 | 0)) + "ms "
-
-    let p_user = BG_CYAN + BG_BLUE + BOLD + WHITE + " 🐚 " + USER + " " + RESET
-    let p_cwd = BG_BLUE + BOLD + WHITE + " " + CWD + " " + RESET
-    
-    let p_git = ""
-    if len(g) > 0:
-        p_git = BG_MAGENTA + BOLD + WHITE + " 🌿 " + g + " " + RESET
-
-    let p_time = ""
-    if len(time_str) > 0:
-        p_time = BG_BLACK + YELLOW + time_str + RESET
-
-    let header = "\r" + ESC + "[K" + p_user + p_cwd + p_git + p_time + "\n"
-    let prompt_sym = GREEN + BOLD + "❯" + RESET + " "
-    io.writefile("/dev/stdout", header + prompt_sym)
-
 proc print_line_raw(l):
     io.writefile("/dev/stdout", l)
 
@@ -257,15 +165,15 @@ proc highlight(line):
         if not cmd_found:
             cmd_found = true
             if is_builtin(p):
-                result = result + MAGENTA + BOLD + p + RESET
+                result = result + ui.MAGENTA + ui.BOLD + p + ui.RESET
             elif command_exists(p):
-                result = result + GREEN + BOLD + p + RESET
+                result = result + ui.GREEN + ui.BOLD + p + ui.RESET
             else:
-                result = result + RED + p + RESET
+                result = result + ui.RED + p + ui.RESET
         elif p[0] == "-":
-                result = result + CYAN + p + RESET
+                result = result + ui.CYAN + p + ui.RESET
         elif p[0] == chr(34) or p[0] == chr(39):
-                result = result + YELLOW + p + RESET
+                result = result + ui.YELLOW + p + ui.RESET
         else:
                 result = result + p
     return result
@@ -363,14 +271,13 @@ proc sage_readline():
     let last_sec = ""
     let needs_redraw = true
 
-    # Non-blocking raw mode
     sys.exec("stty -icanon -echo min 0 time 0")
 
     while true:
-        let state = get_cached_state()
+        let state = ui.get_cached_state()
         let current_time = state[0]
         if current_time != last_sec:
-            draw_status_bar()
+            ui.draw_status_bar(IS_TTY, CWD)
             last_sec = current_time
 
         if needs_redraw:
@@ -379,8 +286,8 @@ proc sage_readline():
             else:
                 suggestion = ""
 
-            io.writefile("/dev/stdout", "\r" + ESC + "[K")
-            print_prompt()
+            io.writefile("/dev/stdout", "\r" + ui.ESC + "[K")
+            ui.print_prompt(USER, CWD, get_git_info(), LAST_EXEC_TIME)
 
             if cursor > 0:
                 print_line_raw(highlight(line[0:cursor]))
@@ -389,7 +296,7 @@ proc sage_readline():
                 print_line_raw(after)
 
             if cursor == len(line) and len(suggestion) > 0:
-                print_line_raw(GREY + ITALIC + suggestion + RESET)
+                print_line_raw(ui.GREY + ui.ITALIC + suggestion + ui.RESET)
                 for i in range(len(suggestion)):
                     io.writefile("/dev/stdout", "\b")
 
@@ -402,7 +309,7 @@ proc sage_readline():
         sys.exec("dd bs=1 count=1 2>/dev/null > /tmp/sage_key")
         let k = io.readfile("/tmp/sage_key")
         if k == nil or len(k) == 0:
-            sys.sleep(0.02) # 50 FPS idle
+            sys.sleep(0.02)
             continue
 
         needs_redraw = true
@@ -432,7 +339,7 @@ proc sage_readline():
             continue
 
         if code == 3:
-            io.writefile("/dev/stdout", "\r" + ESC + "[K^C\r\n")
+            io.writefile("/dev/stdout", "\r" + ui.ESC + "[K^C\r\n")
             restore_terminal()
             return ""
 
@@ -557,7 +464,7 @@ proc process_command(cmd_line):
         sys.exec("clear")
         is_handled = true
     elif cmd_line == "version":
-        print BOLD + "SageShell" + RESET + " v2.0.0"
+        print ui.BOLD + "SageShell" + ui.RESET + " v2.0.0"
         print "Architecture: universal"
         is_handled = true
     elif cmd_line == "debug":
@@ -626,7 +533,6 @@ proc process_command(cmd_line):
         else:
             if len(res) > 0:
                 CWD = res
-                # Re-evaluate visual cwd
                 let h = sys.getenv("HOME")
                 if h != nil and starts_with(CWD, h):
                     CWD = "~" + CWD[len(h):len(CWD)]
@@ -635,7 +541,6 @@ proc process_command(cmd_line):
     if not is_handled:
         let exec_cmd = "cd " + CWD + " && PATH=" + chr(34) + ENV_PATH + chr(34) + " " + cmd_line
         sys.exec(exec_cmd)
-        # We need to refresh CWD in case the command was a script that modified state (though unlikely)
         CWD = get_cwd()
 
     LAST_EXEC_TIME = sys.clock() - start_t
@@ -643,8 +548,8 @@ proc process_command(cmd_line):
 
 proc main():
     load_history()
-    print BG_CYAN + BG_BLUE + BOLD + WHITE + " Welcome to SageShell v2.0.0 " + RESET
-    print ITALIC + "Type 'help' for commands, 'exit' to quit." + RESET
+    print ui.BG_CYAN + ui.BG_BLUE + ui.BOLD + ui.WHITE + " Welcome to SageShell v2.0.0 " + ui.RESET
+    print ui.ITALIC + "Type 'help' for commands, 'exit' to quit." + ui.RESET
 
     let h = sys.getenv("HOME")
     if h != nil:
