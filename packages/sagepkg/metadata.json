@@ -1,10 +1,6 @@
 {
   "name": "sagepkg",
-  "version": "1.5.1",
-  "description": "The SageLang Package Manager",
+  "version": "1.5.2",
   "main": "universal/sagepkg.sage",
-  "files": [
-    "universal/sagepkg.sage",
-    "universal/json.sage"
-  ]
+  "files": ["universal/sagepkg.sage", "universal/json.sage"]
 }
