@@ -1,6 +1,6 @@
 import sys
 import io
-import "ui.sage" as ui
+from ui import *
 
 let HISTORY = []
 let HISTORY_INDEX = 0

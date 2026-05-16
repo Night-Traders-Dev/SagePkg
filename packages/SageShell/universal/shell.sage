@@ -1,6 +1,6 @@
 import sys
 import io
-import "ui.sage" as ui
+from ui import *
 
 # These are assumed to be accessible or passed to the procedures
 # In the original file they were global or accessible within the same scope.
