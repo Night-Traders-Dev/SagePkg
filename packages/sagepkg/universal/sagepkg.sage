@@ -108,6 +108,9 @@ proc ensure_dir(dir):
 # Rejects paths with ".." traversal or shell metacharacters.
 # Allowed: a-z A-Z 0-9 - _ / .
 # ============================================================================
+proc str_contains(s, sub):
+    return len(split(s, sub)) > 1
+
 proc is_safe_path(p):
     if p == nil or len(p) == 0:
         return false
