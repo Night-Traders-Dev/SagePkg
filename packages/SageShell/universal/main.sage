@@ -228,7 +228,8 @@ proc is_builtin(cmd):
     return false
 
 proc highlight(line):
-    if len(line) == 0: return ""
+    if len(line) == 0:
+        return ""
     let result = ""
     let parts = []
     let current = ""
@@ -270,7 +271,8 @@ proc command_exists(cmd):
     return sys.exec(check_cmd) == 0
 
 proc find_suggestion(line):
-    if len(line) == 0: return ""
+    if len(line) == 0:
+        return ""
     for i in range(len(HISTORY)):
         let h = HISTORY[len(HISTORY) - 1 - i]
         if starts_with(h, line):
