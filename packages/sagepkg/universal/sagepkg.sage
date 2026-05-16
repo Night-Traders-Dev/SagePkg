@@ -10,7 +10,7 @@ let _io = io
 # ============================================================================
 # Version — single source of truth for self-update detection
 # ============================================================================
-let SAGEPKG_VERSION = "2.1.1"
+let SAGEPKG_VERSION = "2.1.2"
 
 # ANSI Colors
 let ESC = chr(27)

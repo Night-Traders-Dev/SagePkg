@@ -86,7 +86,7 @@ proc print_prompt(USER, CWD, git_info, last_exec_time):
         p_time = BG_BLACK + YELLOW + time_str + RESET
 
     let header = "\r" + ESC + "[K" + p_user + p_cwd + p_git + p_time + "\n"
-    let prompt_sym = GREEN + BOLD + "❯" + RESET + " "
+    let prompt_sym = "\r" + ESC + "[K" + GREEN + BOLD + "❯" + RESET + " "
     io.writefile("/dev/stdout", header + prompt_sym)
 
 proc get_cached_state():
