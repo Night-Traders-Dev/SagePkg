@@ -111,7 +111,7 @@ proc ensure_dir(dir):
 proc is_safe_path(p):
     if p == nil or len(p) == 0:
         return false
-    if string.contains(p, ".."):
+    if str_contains(p, ".."):
         return false
     for i in range(len(p)):
         let c = p[i]
