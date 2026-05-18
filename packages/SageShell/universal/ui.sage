@@ -89,8 +89,17 @@ proc print_prompt(USER, CWD, git_info, last_exec_time):
     let prompt_sym = "\r" + ESC + "[K" + GREEN + BOLD + "❯" + RESET + " "
     io.writefile("/dev/stdout", header + prompt_sym)
 
+proc set_scrolling_region(rows):
+    io.writefile("/dev/stdout", ESC + "[1;" + str(rows - 1) + "r")
+
+proc reset_scrolling_region():
+    io.writefile("/dev/stdout", ESC + "[r")
+
 proc get_cached_state():
     let content = io.readfile(STATE_FILE)
     if content == nil:
-        return ["N/A", "N/A", "24 80"]
-    return split(content, "|")
+        return ["N/A", "N/A", "24 80", ""]
+    let parts = split(content, "|")
+    if len(parts) < 4:
+        push(parts, "")
+    return parts

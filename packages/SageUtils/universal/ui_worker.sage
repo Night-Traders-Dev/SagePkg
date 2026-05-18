@@ -40,11 +40,31 @@ proc get_term_size():
         return "24 80"
     return size
 
+proc get_git_info():
+    sys.exec("git rev-parse --is-inside-work-tree > /dev/null 2>&1")
+    if sys.exec("test $? -ne 0") == 0:
+        return ""
+    
+    sys.exec("git branch --show-current > /tmp/worker_git_branch 2>/dev/null")
+    let b = trim(io.readfile("/tmp/worker_git_branch"))
+    
+    sys.exec("git status --porcelain > /tmp/worker_git_status 2>/dev/null")
+    let st = trim(io.readfile("/tmp/worker_git_status"))
+    let dirty = ""
+    if len(st) > 0:
+        dirty = "*"
+    
+    if b != "":
+        return b + dirty
+    return ""
+
 while true:
     let time = trim(get_time())
     let temp = get_temp()
     let size = get_term_size()
+    let git = get_git_info()
     
-    let content = time + "|" + temp + "|" + size
-    io.writefile(STATE_FILE, content)
-    sys.exec("sleep 1")
+    let content = time + "|" + temp + "|" + size + "|" + git
+    io.writefile(STATE_FILE + ".tmp", content)
+    sys.exec("mv " + STATE_FILE + ".tmp " + STATE_FILE)
+    sys.sleep(1)

@@ -86,7 +86,10 @@ let ENV_PATH = sys.getenv("PATH")
 let HOME = sys.getenv("HOME")
 
 if HOME != nil:
-    sys.exec("sage " + HOME + "/.sagepkg/packages/SageUtils/universal/ui_worker.sage >/dev/null 2>&1 &")
+    let worker_path = HOME + "/.sagepkg/packages/SageUtils/universal/ui_worker.sage"
+    if io.exists("packages/SageUtils/universal/ui_worker.sage"):
+        worker_path = "packages/SageUtils/universal/ui_worker.sage"
+    sys.exec("sage " + worker_path + " >/dev/null 2>&1 &")
 
 if ENV_PATH == nil or len(ENV_PATH) < 5:
     ENV_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -102,23 +105,6 @@ if HOME != nil:
             if parts[i] != s_bin:
                 new_path = new_path + ":" + parts[i]
         ENV_PATH = new_path
-
-proc get_git_info():
-    if not io.exists(".git"):
-        return ""
-    sys.exec("git branch --show-current > /tmp/sage_git_branch 2>/dev/null")
-    let b = io.readfile("/tmp/sage_git_branch")
-    let branch_name = ""
-    if b != nil:
-        branch_name = trim(b)
-    sys.exec("git status --porcelain > /tmp/sage_git_status 2>/dev/null")
-    let st = io.readfile("/tmp/sage_git_status")
-    let dirty = ""
-    if st != nil and len(trim(st)) > 0:
-        dirty = "*"
-    if branch_name != "":
-        return branch_name + dirty
-    return ""
 
 proc print_line_raw(l):
     io.writefile("/dev/stdout", l)
@@ -235,6 +221,7 @@ proc sage_readline():
     while true:
         let state = ui.get_cached_state()
         let current_time = state[0]
+        let git_info = state[3]
         if current_time != last_sec:
             ui.draw_status_bar(IS_TTY, CWD)
             last_sec = current_time
@@ -250,7 +237,7 @@ proc sage_readline():
                 io.writefile("/dev/stdout", ui.ESC + "[1A")
             
             io.writefile("/dev/stdout", "\r" + ui.ESC + "[K")
-            ui.print_prompt(USER, CWD, get_git_info(), LAST_EXEC_TIME)
+            ui.print_prompt(USER, CWD, git_info, LAST_EXEC_TIME)
             first_draw = false
 
             if cursor > 0:
@@ -428,7 +415,7 @@ proc process_command(cmd_line):
         sys.exec("clear")
         is_handled = true
     elif cmd_line == "version":
-        print ui.BOLD + "SageShell" + ui.RESET + " v2.0.0"
+        print ui.BOLD + "SageShell" + ui.RESET + " v2.1.3"
         print "Architecture: universal"
         is_handled = true
     elif cmd_line == "debug":
@@ -512,7 +499,7 @@ proc process_command(cmd_line):
 
 proc main():
     load_history()
-    print ui.BG_CYAN + ui.BG_BLUE + ui.BOLD + ui.WHITE + " Welcome to SageShell v2.1.2 " + ui.RESET
+    print ui.BG_CYAN + ui.BG_BLUE + ui.BOLD + ui.WHITE + " Welcome to SageShell v2.1.3 " + ui.RESET
     print ui.ITALIC + "Type 'help' for commands, 'exit' to quit." + ui.RESET
 
     let h = sys.getenv("HOME")
@@ -524,10 +511,19 @@ proc main():
             for i in range(len(lines)):
                 process_command(trim(lines[i]))
 
+    let last_rows = 0
     while true:
+        let state = ui.get_cached_state()
+        let size_parts = split(state[2], " ")
+        let rows = tonumber(size_parts[0])
+        if rows != last_rows:
+            ui.set_scrolling_region(rows)
+            last_rows = rows
+
         HISTORY_INDEX = len(HISTORY)
         let cmd_line = sage_readline()
         if cmd_line == nil:
+            ui.reset_scrolling_region()
             print "exit"
             break
         
@@ -541,6 +537,7 @@ proc main():
             save_history(cmd_line)
 
         if not process_command(cmd_line):
+            ui.reset_scrolling_region()
             break
 
 main()
