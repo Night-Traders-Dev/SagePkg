@@ -20,14 +20,33 @@ proc trim(s):
     return result
 
 proc get_temp():
+    # Try thermal zones first (common on ARM/Raspberry Pi/Orange Pi)
     sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null > /tmp/worker_temp")
     let t = io.readfile("/tmp/worker_temp")
+    
+    # Try k10temp (AMD CPUs)
     if t == nil or len(t) == 0:
+        sys.exec("cat /sys/class/hwmon/hwmon*/temp1_input 2>/dev/null | head -n 1 > /tmp/worker_temp")
+        t = io.readfile("/tmp/worker_temp")
+    
+    # Try coretemp (Intel CPUs)
+    if t == nil or len(t) == 0:
+        sys.exec("cat /sys/class/hwmon/hwmon*/temp2_input 2>/dev/null | head -n 1 > /tmp/worker_temp")
+        t = io.readfile("/tmp/worker_temp")
+
+    if t == nil or len(trim(t)) == 0:
         return "N/A"
-    let mc = tonumber(t)
+    
+    let mc = tonumber(trim(t))
     if mc == nil:
         return "N/A"
-    return str((mc / 1000 * 9 / 5 + 32) | 0) + "°F"
+    
+    # Values might be in millidegrees or degrees depending on source
+    # Most sysfs paths use millidegrees (e.g. 38000 = 38C)
+    if mc > 1000:
+        mc = mc / 1000
+    
+    return str((mc * 9 / 5 + 32) | 0) + "°F"
 
 proc get_time():
     sys.exec("date +%H:%M:%S > /tmp/worker_time")
